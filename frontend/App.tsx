@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, View, ScrollView, SafeAreaView, Alert, Animated } from 'react-native';
+import { WebView } from 'react-native-webview';
 import { 
   Provider as PaperProvider, 
   MD3DarkTheme as DefaultTheme, 
@@ -15,6 +16,7 @@ import {
 } from 'react-native-paper';
 import { StatusBar } from 'expo-status-bar';
 import { AudioStreamer } from './src/utils/AudioStreamer';
+import ProfileEdit from './src/components/ProfileEdit';
 
 // WOW 팩터가 가미된 세련된 K-Wave 하모니어스 핑크 & 네이비 다크 테마
 const theme = {
@@ -30,12 +32,225 @@ const theme = {
   },
 };
 
+// 소개팅 앱 번아웃 원인과 대안을 구현한 Matter.js 물리 시뮬레이션 HTML
+const matterHtmlString = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Burnout Physics Sandbox</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #161420;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+</head>
+<body>
+  <script>
+    const { Engine, Render, Runner, Bodies, Composite, Mouse, MouseConstraint, Events, Body } = Matter;
+
+    const engine = Engine.create();
+    const world = engine.world;
+    engine.gravity.y = 1.0;
+
+    const canvasWidth = window.innerWidth;
+    const canvasHeight = window.innerHeight;
+
+    const render = Render.create({
+      element: document.body,
+      engine: engine,
+      options: {
+        width: canvasWidth,
+        height: canvasHeight,
+        wireframes: false,
+        background: '#161420',
+        showAngleIndicator: false
+      }
+    });
+
+    Render.run(render);
+
+    const runner = Runner.create();
+    Runner.run(runner, engine);
+
+    const wallThickness = 100;
+    const ground = Bodies.rectangle(canvasWidth / 2, canvasHeight + wallThickness / 2, canvasWidth * 2, wallThickness, { 
+      isStatic: true,
+      render: { visible: false }
+    });
+    const leftWall = Bodies.rectangle(-wallThickness / 2, canvasHeight / 2, wallThickness, canvasHeight * 2, { 
+      isStatic: true,
+      render: { visible: false }
+    });
+    const rightWall = Bodies.rectangle(canvasWidth + wallThickness / 2, canvasHeight / 2, wallThickness, canvasHeight * 2, { 
+      isStatic: true,
+      render: { visible: false }
+    });
+    const ceiling = Bodies.rectangle(canvasWidth / 2, -wallThickness / 2, canvasWidth * 2, wallThickness, { 
+      isStatic: true,
+      render: { visible: false }
+    });
+
+    Composite.add(world, [ground, leftWall, rightWall, ceiling]);
+
+    const burnoutCauses = [
+      "성비 8:2 & 무의미한 스와이프",
+      "외모·스펙 줄세우기 평가",
+      "가짜 프로필 & 챗봇 사기",
+      "강제 매칭 및 환불 거부"
+    ];
+
+    const alternatives = [
+      "공인 서류 기반 신원/혼인 인증",
+      "가치관 중심 세미 블라인드 매칭",
+      "소모적 대화 생략 & 즉시 약속",
+      "당근마켓형 매너온도 평가"
+    ];
+
+    const measureCanvas = document.createElement('canvas');
+    const measureCtx = measureCanvas.getContext('2d');
+    measureCtx.font = "bold 13px 'Malgun Gothic', AppleSDGothicNeo, sans-serif";
+
+    function getBlockSize(text) {
+      const metrics = measureCtx.measureText(text);
+      const paddingX = 30;
+      const paddingY = 22;
+      return {
+        width: Math.max(metrics.width + paddingX, 130),
+        height: 18 + paddingY
+      };
+    }
+
+    burnoutCauses.forEach((text, i) => {
+      const size = getBlockSize(text);
+      const x = canvasWidth / 2 + (i - 1.5) * 60 + (Math.random() - 0.5) * 30;
+      const y = -100 - i * 85;
+      
+      const causeBody = Bodies.rectangle(x, y, size.width, size.height, {
+        density: 0.08,
+        restitution: 0.1,
+        friction: 0.6,
+        render: {
+          fillStyle: '#2A2830',
+          strokeStyle: '#FF2E93',
+          lineWidth: 2
+        }
+      });
+      
+      causeBody.customText = text;
+      causeBody.customType = 'cause';
+      causeBody.customWidth = size.width;
+      causeBody.customHeight = size.height;
+      Composite.add(world, causeBody);
+    });
+
+    alternatives.forEach((text, i) => {
+      const size = getBlockSize(text);
+      const x = canvasWidth / 2 + (i - 1.5) * 60 + (Math.random() - 0.5) * 30;
+      const y = -500 - i * 85;
+      
+      const altBody = Bodies.rectangle(x, y, size.width, size.height, {
+        density: 0.001,
+        restitution: 0.8,
+        friction: 0.2,
+        render: {
+          fillStyle: '#E8F5E9',
+          strokeStyle: '#00F0FF',
+          lineWidth: 2
+        }
+      });
+      
+      altBody.customText = text;
+      altBody.customType = 'alternative';
+      altBody.customWidth = size.width;
+      altBody.customHeight = size.height;
+      Composite.add(world, altBody);
+    });
+
+    const mouse = Mouse.create(render.canvas);
+    const mouseConstraint = MouseConstraint.create(engine, {
+      mouse: mouse,
+      constraint: {
+        stiffness: 0.2,
+        render: { visible: false }
+      }
+    });
+
+    Composite.add(world, mouseConstraint);
+    render.mouse = mouse;
+
+    Events.on(render, 'afterRender', () => {
+      const context = render.context;
+      const bodies = Composite.allBodies(world);
+
+      bodies.forEach(body => {
+        if (!body.customText) return;
+
+        context.save();
+        context.translate(body.position.x, body.position.y);
+        context.rotate(body.angle);
+
+        context.font = "bold 13px 'Malgun Gothic', AppleSDGothicNeo, sans-serif";
+        context.textAlign = 'center';
+        context.textBaseline = 'middle';
+
+        if (body.customType === 'cause') {
+          context.fillStyle = '#FF5252';
+        } else {
+          context.fillStyle = '#161420';
+        }
+
+        context.fillText(body.customText, 0, 0);
+        context.restore();
+      });
+    });
+
+    window.addEventListener('resize', () => {
+      const newWidth = window.innerWidth;
+      const newHeight = window.innerHeight;
+
+      render.canvas.width = newWidth;
+      render.canvas.height = newHeight;
+      render.options.width = newWidth;
+      render.options.height = newHeight;
+
+      Body.setPosition(ground, { x: newWidth / 2, y: newHeight + wallThickness / 2 });
+      Body.setPosition(leftWall, { x: -wallThickness / 2, y: newHeight / 2 });
+      Body.setPosition(rightWall, { x: newWidth + wallThickness / 2, y: newHeight / 2 });
+      Body.setPosition(ceiling, { x: newWidth / 2, y: -wallThickness / 2 });
+    });
+  </script>
+</body>
+</html>
+`;
+
+
 export default function App() {
   const [userId, setUserId] = useState('');
   const [userName, setUserName] = useState('');
   const [userRole, setUserRole] = useState<'korean' | 'fan'>('fan');
   const [isRegistered, setIsRegistered] = useState(false);
   
+  // 신규 상세 프로필 제어 상태 변수
+  const [profileCompleted, setProfileCompleted] = useState(false);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+
   const [roomId, setRoomId] = useState('k-wave-match-room-1');
   const [inCall, setInCall] = useState(false);
   const [callStatus, setCallStatus] = useState('대기 중...');
@@ -44,7 +259,6 @@ export default function App() {
   const [bannerVisible, setBannerVisible] = useState(false);
   const [bannerMessage, setBannerMessage] = useState('');
   
-  // 마이크 음성 파형용 애니메이션 값 (Wow micro-animation 효과)
   const waveAnim = useRef(new Animated.Value(1)).current;
   const ws = useRef<WebSocket | null>(null);
 
@@ -54,7 +268,6 @@ export default function App() {
     };
   }, []);
 
-  // 보이스톡 연결 중 애니메이션 루프 가동
   useEffect(() => {
     if (inCall && peerId) {
       Animated.loop(
@@ -186,6 +399,36 @@ export default function App() {
     setIsRegistered(true);
   };
 
+  // 상세 프로필 백엔드 API 연동 저장 처리
+  const saveDetailedProfile = async (profileData: any) => {
+    setIsSavingProfile(true);
+    try {
+      const response = await fetch('http://127.0.0.1:3000/api/user/profile', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId,
+          profileData
+        }),
+      });
+
+      const resJson = await response.json();
+      if (!response.ok) {
+        throw new Error(resJson.message || resJson.error || '저장 실패');
+      }
+
+      setProfileCompleted(true);
+      setIsEditMode(false);
+      Alert.alert('성공', '상세 프로필 정보가 성공적으로 반영되었습니다!');
+    } catch (error: any) {
+      Alert.alert('프로필 저장 실패', error.message || '네트워크 상태를 확인해 주세요.');
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
+
   return (
     <PaperProvider theme={theme}>
       <StatusBar style="light" />
@@ -205,7 +448,7 @@ export default function App() {
             },
           ]}
           icon={({ size }) => (
-            <Avatar.Icon size={size} icon="shield-lock" backgroundColor={theme.colors.error} />
+            <Avatar.Icon size={size} icon="shield-lock" style={{ backgroundColor: theme.colors.error }} />
           )}
           style={styles.banner}
         >
@@ -266,6 +509,13 @@ export default function App() {
                 </Button>
               </Card.Actions>
             </Card>
+          ) : (!profileCompleted || isEditMode) ? (
+            <ProfileEdit
+              initialData={{ userName, userRole }}
+              onSave={saveDetailedProfile}
+              onCancel={isEditMode ? () => setIsEditMode(false) : undefined}
+              isSubmitting={isSavingProfile}
+            />
           ) : (
             <View>
               <Card style={styles.card} mode="contained">
@@ -273,13 +523,23 @@ export default function App() {
                   <Avatar.Icon 
                     size={48} 
                     icon={userRole === 'korean' ? 'heart-pulse' : 'earth'} 
-                    backgroundColor={userRole === 'korean' ? theme.colors.primary : theme.colors.secondary} 
+                    style={{ backgroundColor: userRole === 'korean' ? theme.colors.primary : theme.colors.secondary }} 
                   />
                   <View style={styles.userInfoText}>
                     <Text variant="titleLarge" style={{ color: '#FFF', fontWeight: 'bold' }}>{userName}</Text>
                     <Text variant="bodyMedium" style={{ color: '#AAA' }}>
                       {userRole === 'korean' ? 'Seoul, South Korea 🇰🇷' : 'K-Wave Passionate Fan 🌍'}
                     </Text>
+                  </View>
+                  <View style={{ flex: 1, alignItems: 'flex-end' }}>
+                    <Button 
+                      icon="account-edit" 
+                      mode="text" 
+                      textColor={theme.colors.accent} 
+                      onPress={() => setIsEditMode(true)}
+                    >
+                      편집
+                    </Button>
                   </View>
                 </Card.Content>
               </Card>
@@ -302,10 +562,25 @@ export default function App() {
                       </View>
                     )}
 
+                    {inCall && !peerId && (
+                      <View style={styles.sandboxContainer}>
+                        <Text variant="bodySmall" style={styles.sandboxTitle}>
+                          💡 매칭 대기 중! 소개팅 번아웃 블록을 던지며 스트레스를 풀어보세요
+                        </Text>
+                        <WebView
+                          originWhitelist={['*']}
+                          source={{ html: matterHtmlString }}
+                          style={styles.webview}
+                          scrollEnabled={false}
+                          overScrollMode="never"
+                        />
+                      </View>
+                    )}
+
                     {inCall && peerId && (
                       <View style={styles.peerInfo}>
                         <Animated.View style={[styles.waveCircle, { transform: [{ scale: waveAnim }] }]}>
-                          <Avatar.Icon size={40} icon="microphone" backgroundColor={theme.colors.primary} />
+                          <Avatar.Icon size={40} icon="microphone" style={{ backgroundColor: theme.colors.primary }} />
                         </Animated.View>
                         <View style={{ marginLeft: 16 }}>
                           <Text variant="titleMedium" style={{ color: '#FFF', fontWeight: 'bold' }}>메이트: {peerId}</Text>
@@ -468,5 +743,25 @@ const styles = StyleSheet.create({
     width: '100%',
     borderRadius: 12,
     paddingVertical: 6,
+  },
+  sandboxContainer: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#2D2B3B',
+    height: 320,
+  },
+  sandboxTitle: {
+    color: '#00F0FF',
+    fontSize: 12,
+    marginBottom: 10,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  webview: {
+    flex: 1,
+    backgroundColor: '#161420',
+    borderRadius: 12,
+    overflow: 'hidden',
   }
 });

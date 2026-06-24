@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>korea aimasu - 당신의 진짜 인연을 찾는 여정</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- Matter.js CDN 로드 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+</head>
+<body>
+
+  <!-- 헤더 영역 -->
+  <header>
+    <a href="#" class="logo">
+      <span>korea aimasu 🇰🇷💖</span>
+    </a>
+  </header>
+
+  <!-- 히어로 섹션 -->
+  <section class="hero-section">
+    <div class="hero-container">
+      <div class="hero-content">
+        <h1>당신의 진짜 인연을 찾는 여정,<br>이제 <span>편안하게</span> 시작하세요</h1>
+        <p>기계적인 스와이프와 스펙 중심의 줄세우기에 지치셨나요? 이제 따뜻한 교감과 철저한 안전 검증이 갖춰진 공간에서 신뢰할 수 있는 메이트를 만나보세요.</p>
+        <a href="#sandbox" class="cta-button">
+          소개팅 스트레스 깨부수기 🚀
+        </a>
+      </div>
+      <div class="hero-illustration-wrapper">
+        <img src="assets/hero_illustration.png" alt="따뜻하게 차를 마시며 대화하는 연인" class="hero-image">
+      </div>
+    </div>
+  </section>
+
+  <!-- 번아웃 샌드박스 피드백 섹션 -->
+  <section id="sandbox" class="sandbox-section">
+    <div class="sandbox-header">
+      <h2>데이팅 앱 번아웃 <span>스트레스 격파존</span></h2>
+      <p>기존 소개팅 서비스에서 받았던 스트레스 요인(원인 블록)을 잡고 화면 밖으로 던지거나,<br>당사가 제시하는 대안적 가치(통통 튀는 파스텔 블록)와 마구 충돌시켜 보세요!</p>
+    </div>
+
+    <!-- 물리 엔진 시뮬레이터 캔버스 탑재 영역 -->
+    <div class="canvas-container">
+      <!-- 캔버스 위에 띄울 팁 메시지 -->
+      <div class="canvas-tips">
+        <span>💡 TIP</span> 마우스나 터치로 블록을 잡고 힘껏 던져보세요!
+      </div>
+    </div>
+  </section>
+
+  <!-- 앱 다운로드 푸터 섹션 -->
+  <section class="footer-cta">
+    <h3>지금, 새로운 만남을 시작하세요</h3>
+    <p>실시간 AI 가드로 로맨스 스캠 걱정 없는 초저지연 프라이빗 보이스 데이트를 모바일에서 만나보세요.</p>
+    <a href="#" class="cta-button">
+      App Store & Play Store 다운로드
+    </a>
+  </section>
+
+  <script>
+    // Matter.js 모듈 별칭 정의
+    const { Engine, Render, Runner, Bodies, Composite, Mouse, MouseConstraint, Events, Body } = Matter;
+
+    // 물리 엔진 및 세계 생성
+    const engine = Engine.create();
+    const world = engine.world;
+    engine.gravity.y = 0.9; // 자연스럽고 쫀득한 중력가속도
+
+    // 캔버스 컨테이너 크기 계산
+    const container = document.querySelector('.canvas-container');
+    let width = container.clientWidth;
+    let height = container.clientHeight;
+
+    // 렌더러 생성 및 컨테이너 바인딩
+    const render = Render.create({
+      element: container,
+      engine: engine,
+      options: {
+        width: width,
+        height: height,
+        wireframes: false,
+        background: '#0F0E17',
+        showAngleIndicator: false
+      }
+    });
+
+    Render.run(render);
+
+    const runner = Runner.create();
+    Runner.run(runner, engine);
+
+    // 보이지 않는 정적 벽들 (화면 가장자리 배치)
+    const wallThickness = 100;
+    const ground = Bodies.rectangle(width / 2, height + wallThickness / 2, width * 2, wallThickness, { 
+      isStatic: true,
+      render: { visible: false }
+    });
+    const leftWall = Bodies.rectangle(-wallThickness / 2, height / 2, wallThickness, height * 2, { 
+      isStatic: true,
+      render: { visible: false }
+    });
+    const rightWall = Bodies.rectangle(width + wallThickness / 2, height / 2, wallThickness, height * 2, { 
+      isStatic: true,
+      render: { visible: false }
+    });
+    const ceiling = Bodies.rectangle(width / 2, -wallThickness / 2, width * 2, wallThickness, { 
+      isStatic: true,
+      render: { visible: false }
+    });
+
+    Composite.add(world, [ground, leftWall, rightWall, ceiling]);
+
+    // 4대 번아웃 원인 및 대안 정의
+    const burnoutCauses = [
+      "남녀 비율 8대 2와 무의미한 스와이프 피로",
+      "외모·스펙 중심의 줄세우기와 자존감 하락",
+      "가짜 프로필/봇/로맨스 스캠",
+      "과도한 과금 유도 및 환불 불가 꼼수"
+    ];
+
+    const alternatives = [
+      "철저한 직장/혼인 인증 시스템",
+      "외모 블라인드 및 가치관 중심 매칭",
+      "대화 생략 & 다이렉트 오프라인 만남",
+      "매너 온도 기반의 사후 평가 도입"
+    ];
+
+    // 폰트 크기와 가로 길이를 정확하게 자동 계산하기 위한 헬퍼 캔버스
+    const measureCanvas = document.createElement('canvas');
+    const measureCtx = measureCanvas.getContext('2d');
+    measureCtx.font = "bold 13px 'Noto Sans KR', sans-serif";
+
+    function getBlockSize(text) {
+      const metrics = measureCtx.measureText(text);
+      const paddingX = 40; // 좌우 넉넉한 글자 간격
+      const paddingY = 24; // 세로 두께
+      return {
+        width: Math.max(metrics.width + paddingX, 150),
+        height: 16 + paddingY
+      };
+    }
+
+    // 1. 번아웃 원인 블록 생성 (다크 그레이 & 레드)
+    burnoutCauses.forEach((text, i) => {
+      const size = getBlockSize(text);
+      const x = width / 2 + (i - 1.5) * 80 + (Math.random() - 0.5) * 40;
+      const y = -100 - i * 90; // 시차를 둔 생성
+      
+      const causeBody = Bodies.rectangle(x, y, size.width, size.height, {
+        density: 0.1,         // 매우 묵직하고 단단한 질감
+        restitution: 0.05,     // 둔탁하게 튕김
+        friction: 0.7,
+        render: {
+          fillStyle: '#24212D', // 어두운 차콜 계열
+          strokeStyle: '#FF5555', // 경고용 네온 레드
+          lineWidth: 2
+        }
+      });
+      
+      causeBody.customText = text;
+      causeBody.customType = 'cause';
+      causeBody.customWidth = size.width;
+      causeBody.customHeight = size.height;
+      Composite.add(world, causeBody);
+    });
+
+    // 2. 대안 블록 생성 (파스텔 민트 / 블루 & 그린, 통통 튕김)
+    alternatives.forEach((text, i) => {
+      const size = getBlockSize(text);
+      const x = width / 2 + (i - 1.5) * 80 + (Math.random() - 0.5) * 40;
+      const y = -500 - i * 90; // 원인 블록보다 늦게 생성
+      
+      const altBody = Bodies.rectangle(x, y, size.width, size.height, {
+        density: 0.002,       // 매우 가벼움
+        restitution: 0.85,    // 통통 튀는 높은 반발 계수
+        friction: 0.25,
+        render: {
+          fillStyle: '#E8F5E9', // 밝고 희망찬 민트 톤
+          strokeStyle: '#00F0FF', // 하이테크 네온 블루 하이라이트
+          lineWidth: 2
+        }
+      });
+      
+      altBody.customText = text;
+      altBody.customType = 'alternative';
+      altBody.customWidth = size.width;
+      altBody.customHeight = size.height;
+      Composite.add(world, altBody);
+    });
+
+    // 마우스 및 터치 상호작용
+    const mouse = Mouse.create(render.canvas);
+    const mouseConstraint = MouseConstraint.create(engine, {
+      mouse: mouse,
+      constraint: {
+        stiffness: 0.2,
+        render: { visible: false }
+      }
+    });
+
+    Composite.add(world, mouseConstraint);
+    render.mouse = mouse;
+
+    // afterRender 이벤트를 활용해 Canvas 위에 텍스트 드로잉 구현
+    Events.on(render, 'afterRender', () => {
+      const context = render.context;
+      const bodies = Composite.allBodies(world);
+
+      bodies.forEach(body => {
+        if (!body.customText) return;
+
+        context.save();
+        // 물리 블록 위치로 이동 후 회전 매핑
+        context.translate(body.position.x, body.position.y);
+        context.rotate(body.angle);
+
+        // 폰트 스타일 렌더링
+        context.font = "bold 13px 'Noto Sans KR', sans-serif";
+        context.textAlign = 'center';
+        context.textBaseline = 'middle';
+
+        if (body.customType === 'cause') {
+          context.fillStyle = '#FF5555'; // 원인은 눈에 띄는 붉은색
+        } else {
+          context.fillStyle = '#161420'; // 대안은 가독성 높은 다크그레이 (민트배경 대비)
+        }
+
+        context.fillText(body.customText, 0, 0);
+        context.restore();
+      });
+    });
+
+    // 반응형 자바스크립트 이벤트: 창 크기 변경 시 캔버스 및 정적 벽들 재배치
+    window.addEventListener('resize', () => {
+      const newWidth = container.clientWidth;
+      const newHeight = container.clientHeight;
+
+      render.canvas.width = newWidth;
+      render.canvas.height = newHeight;
+      render.options.width = newWidth;
+      render.options.height = newHeight;
+
+      // 정적 벽 위치 실시간 재계산
+      Body.setPosition(ground, { x: newWidth / 2, y: newHeight + wallThickness / 2 });
+      Body.setPosition(leftWall, { x: -wallThickness / 2, y: newHeight / 2 });
+      Body.setPosition(rightWall, { x: newWidth + wallThickness / 2, y: newHeight / 2 });
+      Body.setPosition(ceiling, { x: newWidth / 2, y: -wallThickness / 2 });
+    });
+  </script>
+</body>
+</html>

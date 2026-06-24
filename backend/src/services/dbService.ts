@@ -1,4 +1,6 @@
 import { db } from '../config/firebase';
+import * as admin from 'firebase-admin';
+import { UserProfile } from '../types/matchTypes';
 
 export interface UserStatus {
   isBanned: boolean;
@@ -6,6 +8,9 @@ export interface UserStatus {
   banReason?: string;
   scamScore: number;
 }
+
+// 가상 인메모리 유저 프로필 맵 (Firebase 비활성화 시 Fallback)
+const mockUserProfiles = new Map<string, UserProfile>();
 
 /**
  * Firestore를 이용한 사용자 스캠 점수 및 차단(Ban) 상태 관리 서비스
@@ -118,6 +123,104 @@ export const DbService = {
     } catch (error) {
       console.error('❌ Firestore 사용자 상태 확인 실패:', error);
       return defaultStatus;
+    }
+  },
+
+  /**
+   * 사용자 상세 프로필을 유효성 검사 후 Firestore 또는 Mock DB에 저장합니다.
+   */
+  saveUserProfile: async (userId: string, profileData: any): Promise<UserProfile> => {
+    const { userName, userRole, religion, lifestyle, bloodType, hobbies } = profileData;
+
+    if (!userName || !userRole || !religion || !lifestyle) {
+      throw new Error('MISSING_REQUIRED_FIELDS');
+    }
+
+    if (userRole !== 'korean' && userRole !== 'fan') {
+      throw new Error('INVALID_USER_ROLE');
+    }
+
+    // 종교 값 체크
+    const validReligions = ['NONE', 'CHRISTIAN', 'BUDDHIST', 'CATHOLIC', 'OTHER'];
+    if (!validReligions.includes(religion)) {
+      throw new Error('INVALID_RELIGION_VALUE');
+    }
+
+    // 라이프스타일 체크
+    const { residenceType, drinking, smoking } = lifestyle || {};
+    if (!residenceType || !drinking || !smoking) {
+      throw new Error('MISSING_LIFESTYLE_FIELDS');
+    }
+
+    const validDrinking = ['YES', 'NO', 'SOMETIMES'];
+    const validSmoking = ['YES', 'NO'];
+    if (!validDrinking.includes(drinking) || !validSmoking.includes(smoking)) {
+      throw new Error('INVALID_LIFESTYLE_VALUES');
+    }
+
+    // 혈액형 체크 (선택 사항)
+    if (bloodType) {
+      const validBloodTypes = ['A', 'B', 'O', 'AB'];
+      if (!validBloodTypes.includes(bloodType)) {
+        throw new Error('INVALID_BLOOD_TYPE');
+      }
+    }
+
+    // 취미 체크 (선택 사항)
+    if (hobbies) {
+      if (!Array.isArray(hobbies) || hobbies.some(h => typeof h !== 'string')) {
+        throw new Error('INVALID_HOBBIES_FORMAT');
+      }
+      if (hobbies.length > 10) {
+        throw new Error('TOO_MANY_HOBBIES');
+      }
+    }
+
+    const now = new Date();
+    const updatedProfile: UserProfile = {
+      userId,
+      userName,
+      userRole,
+      religion,
+      lifestyle,
+      bloodType,
+      hobbies,
+      updatedAt: now
+    };
+
+    try {
+      if (!db) throw new Error('NO_DB');
+      
+      const firestoreData: any = {
+        ...updatedProfile,
+        updatedAt: admin.firestore.Timestamp.fromDate(now)
+      };
+      await db.collection('user_profiles').doc(userId).set(firestoreData);
+      return updatedProfile;
+    } catch (error: any) {
+      console.warn('⚠️ [GCP MOCK FALLBACK] DB 연결 불가로 메모리에 상세 프로필을 저장합니다. User:', userId);
+      mockUserProfiles.set(userId, updatedProfile);
+      return updatedProfile;
+    }
+  },
+
+  /**
+   * 사용자 상세 프로필을 로드합니다.
+   */
+  getUserProfile: async (userId: string): Promise<UserProfile | null> => {
+    try {
+      if (!db) throw new Error('NO_DB');
+      const snap = await db.collection('user_profiles').doc(userId).get();
+      if (!snap.exists) return null;
+      
+      const data = snap.data();
+      return {
+        ...data,
+        updatedAt: data?.updatedAt ? data.updatedAt.toDate() : undefined
+      } as UserProfile;
+    } catch (error) {
+      const profile = mockUserProfiles.get(userId);
+      return profile || null;
     }
   }
 };

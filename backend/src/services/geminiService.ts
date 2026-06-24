@@ -39,7 +39,7 @@ export async function checkTextSafety(text: string): Promise<SafetyCheckResult> 
   }
 
   try {
-    const model = ai.getGenerativeModel({ model: 'gemini-3.5-flash' });
+    const model = ai.getGenerativeModel({ model: 'gemini-2.0-flash-exp' }); // 최신 모델 동기화
     const prompt = `
     당신은 데이팅 앱 'korea aimasu'의 보안 필터링 AI입니다. 
     다음 대화 혹은 자기소개 텍스트를 보고, 스캠 사기(환전 유도, 투자 권유, 외부 연락처 강요), 언어 폭력, 음란 대화 여부를 엄격히 판단하십시오.
@@ -71,16 +71,20 @@ export async function checkTextSafety(text: string): Promise<SafetyCheckResult> 
 }
 
 /**
- * Gemini Multimodal Live API WebSocket 세션 초기화 및 터널링 생성
+ * Gemini Multimodal Live API WebSocket 세션 초기화 및 양방향 AI 통역 파이프라인 생성
  * @param clientWs 클라이언트(React Native)와 백엔드 간의 WebSocket 연결 인스턴스
- * @param userId 오디오 스트림 송신 사용자 고유 ID (스캠 스코어 트래킹용)
+ * @param userId 오디오 스트림 송신 사용자 고유 ID
  * @param roomId 통화가 이뤄지고 있는 룸 ID
- * @param onForceDisconnect 강제 차단 발생 시 백엔드 소켓을 닫아버리기 위한 콜백
+ * @param translationDirection AI 통역 방향 ('KR_TO_JP' | 'JP_TO_KR' | 'NONE')
+ * @param onAudioData 통역된 번역 오디오(Base64 PCM)가 생성되었을 때 호출되는 콜백
+ * @param onForceDisconnect 유해 감지로 인한 통화 강제 파괴 콜백
  */
 export function createGeminiLiveSession(
   clientWs: WebSocket, 
   userId: string, 
   roomId: string,
+  translationDirection: 'KR_TO_JP' | 'JP_TO_KR' | 'NONE',
+  onAudioData: (base64Audio: string) => void,
   onForceDisconnect: (reason: string) => void
 ): WebSocket | null {
   if (!apiKey) {
@@ -93,25 +97,44 @@ export function createGeminiLiveSession(
   const geminiWs = new WebSocket(geminiLiveUrl);
 
   geminiWs.on('open', () => {
-    console.log(`🟢 Gemini Live API WebSocket 연결이 개설되었습니다. (유저: ${userId})`);
+    console.log(`🟢 Gemini Live API WebSocket 연결이 개설되었습니다. (유저: ${userId}, 통역방향: ${translationDirection})`);
     
+    let systemText = '';
+    let responseModalities: string[] = ['text'];
+
+    if (translationDirection === 'KR_TO_JP') {
+      responseModalities = ['audio', 'text'];
+      systemText = `당신은 한일 매칭 앱의 전문 동시통역사입니다. 입력되는 한국어 음성을 듣고 즉시 자연스럽고 친근한 일본어 음성으로 번역하여 말하십시오.
+      번역 목적 이외의 어떠한 사담이나 설명도 대답하지 말고 즉각 통역 음성만 출력하십시오.
+      단, 대화 중 심각한 금융 사기(송금 유도, 비트코인 거래 유도)나 폭언이 감지되면 즉시 통역을 중단하고 다음 JSON 메시지를 텍스트로 출력하십시오:
+      {"alert": "WARN_SCAM", "reason": "스캠 의심 단어 감지"} 또는 {"alert": "TERMINATE_CALL", "reason": "심각한 욕설 및 유해 발언 감지"}`;
+    } else if (translationDirection === 'JP_TO_KR') {
+      responseModalities = ['audio', 'text'];
+      systemText = `당신은 일한 매칭 앱의 전문 동시통역사입니다. 입력되는 일본어 음성을 듣고 즉시 자연스럽고 친근한 한국어 음성으로 번역하여 말하십시오.
+      번역 목적 이외의 어떠한 사담이나 설명도 대답하지 말고 즉각 통역 음성만 출력하십시오.
+      단, 대화 중 심각한 금융 사기(송금 유도, 비트코인 거래 유도)나 폭언이 감지되면 즉시 통역을 중단하고 다음 JSON 메시지를 텍스트로 출력하십시오:
+      {"alert": "WARN_SCAM", "reason": "스캠 의심 단어 감지"} 또는 {"alert": "TERMINATE_CALL", "reason": "심각한 욕설 및 유해 발언 감지"}`;
+    } else {
+      // 통역 비활성화 시: 순수 보안 감시 모드로 작동 (침묵 지침)
+      responseModalities = ['text'];
+      systemText = `당신은 실시간 AI 보안관입니다. 통화를 청취하다가 유해 행위나 스캠이 감지되면 JSON 메시지만 텍스트로 대답하고, 평소에는 절대 말하지 마십시오.`;
+    }
+
     const setupMessage = {
       setup: {
         model: 'models/gemini-2.0-flash-exp',
         generationConfig: {
-          responseModalities: ['text'],
+          responseModalities: responseModalities,
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: {
+                voiceName: translationDirection === 'KR_TO_JP' ? 'Aoede' : 'Puck' // 남/여 목소리 다변화
+              }
+            }
+          }
         },
         systemInstruction: {
-          parts: [
-            {
-              text: `당신은 한류 데이팅 앱 'korea aimasu'의 보이스톡 실시간 AI 보안관입니다.
-              사용자 간의 음성 통화를 실시간으로 청취하며, 금융 사기(송금 유도, 비트코인 거래, 통장 대여 요구 등)나 
-              언어폭력, 심각한 유해 대화가 감지되면 즉시 반응하십시오.
-              유해한 정황 감지 시 반드시 JSON 포맷으로 다음 메시지를 텍스트 응답으로 내놓아야 합니다:
-              {"alert": "WARN_SCAM", "reason": "스캠 의심 단어 감지"} 또는 {"alert": "TERMINATE_CALL", "reason": "심각한 욕설 및 유해 발언 감지"}
-              그 외의 일상적이고 안전한 대화는 일체 응답하지 말고 침묵하십시오.`
-            }
-          ]
+          parts: [{ text: systemText }]
         }
       }
     };
@@ -125,6 +148,13 @@ export function createGeminiLiveSession(
       
       if (response.serverContent?.modelTurn?.parts) {
         for (const part of response.serverContent.modelTurn.parts) {
+          
+          // 1. 번역 오디오 스트림 수신 시 콜백 전달 (오디오-투-오디오)
+          if (part.inlineData && part.inlineData.mimeType?.startsWith('audio/')) {
+            onAudioData(part.inlineData.data);
+          }
+
+          // 2. 보안 가드 텍스트 수신 시 실시간 차단 처리
           if (part.text) {
             console.log(`🤖 Gemini Live 분석 [User: ${userId}]: ${part.text}`);
             
@@ -133,23 +163,19 @@ export function createGeminiLiveSession(
               const alertObj = JSON.parse(alertMatch[0]);
               
               if (alertObj.alert === 'WARN_SCAM') {
-                // 1. 가벼운 경고 시 스캠 점수 +30점
                 const status = await DbService.incrementScamScore(userId, 30, alertObj.reason || '스캠 키워드 언급');
                 
-                // 클라이언트에 실시간 경고 통지 전송
                 clientWs.send(JSON.stringify({
                   event: 'ai_guard_alert',
                   alert: 'WARN_SCAM',
                   reason: `${alertObj.reason} (누적 위험도: ${status.scamScore}점)`
                 }));
 
-                // 만약 누적 점수가 임계치인 80점을 초과하여 차단 상태로 바뀌었다면 강제 통화 종료로 격상
                 if (status.isBanned) {
                   onForceDisconnect(`누적 스캠 스코어 임계값 초과 (${status.scamScore}점)`);
                 }
 
               } else if (alertObj.alert === 'TERMINATE_CALL') {
-                // 2. 심각한 폭언/유해 단어 감지 시 즉시 스캠 점수 +80점 주입하여 즉각 BAN
                 await DbService.incrementScamScore(userId, 80, alertObj.reason || '심각한 정책 위반 발언');
                 onForceDisconnect(alertObj.reason || '심각한 유해 및 스캠 대화 감지');
               }
@@ -158,17 +184,17 @@ export function createGeminiLiveSession(
         }
       }
     } catch (e) {
-      // 바이트 처리 스킵
+      // 바이너리 데이터 변환 오류 무시
     }
   });
 
   geminiWs.on('error', (err: Error) => {
     console.error(`❌ Gemini Live API WebSocket 에러 (${userId}):`, err);
-    clientWs.send(JSON.stringify({ event: 'system_error', message: 'AI 실시간 가드 모듈 연결 오류' }));
+    clientWs.send(JSON.stringify({ event: 'system_error', message: 'AI 실시간 가드/통역 모듈 연결 오류' }));
   });
 
   geminiWs.on('close', (code: number, reason: Buffer) => {
-    console.log(`🔴 Gemini Live API WebSocket 연결 종료 (User: ${userId}, Code: ${code}, Reason: ${reason.toString()})`);
+    console.log(`🔴 Gemini Live API WebSocket 연결 종료 (User: ${userId}, Code: ${code})`);
   });
 
   return geminiWs;

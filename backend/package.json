@@ -9,6 +9,7 @@
     "dev": "nodemon --watch src -e ts --exec ts-node src/server.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-rekognition": "^3.1075.0",
     "@google/generative-ai": "^0.13.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
