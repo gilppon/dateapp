@@ -45,13 +45,13 @@ async function runTests() {
 
     // 2. 가치관 매칭 스코어 검증
     console.log('\n[TEST 1] 결혼 가치관 기반 매칭 적합도 검사');
-    const scoreAB = MatchService.calculateMatchScore(valuesA, valuesB);
+    const scoreAB = await MatchService.calculateMatchScore(valuesA, valuesB);
     console.log(`   - A & B 점수: ${scoreAB.score}점 (BestMatch: ${scoreAB.isBestMatch})`);
     if (scoreAB.score !== 100) throw new Error('A & B 점수가 일치하지 않습니다.');
 
-    const scoreAC = MatchService.calculateMatchScore(valuesA, valuesC);
+    const scoreAC = await MatchService.calculateMatchScore(valuesA, valuesC);
     console.log(`   - A & C 점수: ${scoreAC.score}점 (BestMatch: ${scoreAC.isBestMatch})`);
-    if (scoreAC.score > 20) throw new Error('A & C 점수는 현저히 낮아야 합니다.');
+    if (scoreAC.score !== 10) throw new Error(`A & C 점수(기대값: 10점) 정합성 에러: 실제값 ${scoreAC.score}점`);
 
     // 3. 미팅 캘린더 조율 (useAiTranslation 활성화)
     console.log('\n[TEST 2] AI 실시간 통역 옵션 활성화 화상 미팅 조율 검사');

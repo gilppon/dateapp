@@ -25,7 +25,7 @@ export const ConciergeService = {
     const values1 = await MatchService.getMarriageValues(user1Id);
     const values2 = await MatchService.getMarriageValues(user2Id);
     if (values1 && values2) {
-      const matchRes = MatchService.calculateMatchScore(values1, values2);
+      const matchRes = await MatchService.calculateMatchScore(values1, values2);
       compatibilityScore = matchRes.score;
     }
 

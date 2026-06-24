@@ -199,3 +199,85 @@ export function createGeminiLiveSession(
 
   return geminiWs;
 }
+
+/**
+ * 80점 미만의 매칭 결과에 대해 두 사용자가 가치관 차이를 어떻게 조율해야 하는지 Gemini 2.0 Flash로 어드바이스를 생성합니다.
+ */
+export async function generateMatchAdvice(
+  u1: any,
+  u2: any,
+  score: number,
+  details: any
+): Promise<string> {
+  const fallbackMessage = `두 분은 자녀 계획, 거주지 의향 혹은 종교관 등에서 소폭의 차이가 존재합니다. 서로의 다름을 인정하고, 배려하는 열린 대화를 나눠보실 것을 권장드립니다.`;
+
+  if (!ai) {
+    console.warn('⚠️ [Gemini Mock Mode] API Key가 없어 로컬 고정 가이드 문구를 리턴합니다.');
+    return fallbackMessage;
+  }
+
+  try {
+    const model = ai.getGenerativeModel({ model: 'models/gemini-2.0-flash' });
+    
+    const getReligionText = (r: string) => {
+      if (r === 'NONE') return '무교(なし)';
+      if (r === 'CHRISTIAN') return '기독교(キリスト教)';
+      if (r === 'BUDDHIST') return '불교(仏教)';
+      if (r === 'CATHOLIC') return '천주교(カトリック)';
+      return '기타(その他)';
+    };
+
+    const getResidenceText = (res: string) => {
+      if (res === 'STAY_IN_KR') return '한국 거주 희망(韓国居住希望)';
+      if (res === 'STAY_IN_JP') return '일본 거주 희망(日本居住希望)';
+      return '상호 조율 가능(柔軟に対応可能)';
+    };
+
+    const getChildText = (c: string) => {
+      if (c === 'WANT_CHILDREN') return '자녀를 원함(子供を希望)';
+      if (c === 'NO_CHILDREN') return '자녀를 원치 않음(子供を希望しない)';
+      return '상호 협의 필요(話し合いが必要)';
+    };
+
+    const getIncomeText = (inc: string) => {
+      if (inc === 'YES') return '맞벌이 필수(共働き希望)';
+      if (inc === 'NO') return '외벌이 선호(専業主婦/主夫希望)';
+      return '상호 조율 가능(柔軟に対応可能)';
+    };
+
+    const prompt = `
+    당신은 한일 양국 간 진지한 결혼을 조력하는 전문 커플 매니저이자 연애/상담 상담사 AI입니다.
+    가치관 매칭 점수가 ${score}점으로 다소 낮게 나온 남녀 두 유저가 있습니다. 
+    이 두 유저가 결혼 후 갈등을 겪지 않고, 첫 만남이나 대화 시 어떻게 이 차이점들을 조율해야 하는지 따뜻하고 정중한 어조의 가이드 코멘트를 생성하십시오.
+    
+    [유저 1의 조건]:
+    - 자녀 계획: ${getChildText(u1.childPlan)}
+    - 거주 희망: ${getResidenceText(u1.residenceWill)}
+    - 종교: ${getReligionText(u1.religion)}
+    - 맞벌이 여부: ${getIncomeText(u1.dualIncome)}
+    
+    [유저 2의 조건]:
+    - 자녀 계획: ${getChildText(u2.childPlan)}
+    - 거주 희망: ${getResidenceText(u2.residenceWill)}
+    - 종교: ${getReligionText(u2.religion)}
+    - 맞벌이 여부: ${getIncomeText(u2.dualIncome)}
+
+    [가치관 점수 세부 분석 (최대 만점)]:
+    - 자녀 계획: ${details.childPlanScore} / 30점
+    - 거주지 의사: ${details.residenceScore} / 30점
+    - 종교 일치도: ${details.religionScore} / 20점
+    - 맞벌이/경제관: ${details.economicScore} / 20점
+
+    [지침]:
+    1. 두 유저의 조건에서 서로 '다른 부분'을 명확히 짚어주되, 서로의 생각을 비난하지 않고 정중한 조언으로 승화시키십시오.
+    2. 한국어와 일본어 사용자가 함께 보는 리포트이므로, 한국어로 작성한 후 그 아래에 일본어(丁寧語, 경어) 번역을 함께 덧붙여 주십시오.
+    3. 구체적으로 "첫 통화나 대화 시 이 주제에 대해 어떻게 질문을 시작하면 좋을지" 질문 오프닝 팁을 하나씩 양국어로 제안하십시오.
+    `;
+
+    const response = await model.generateContent(prompt);
+    return response.response.text().trim() || fallbackMessage;
+  } catch (error) {
+    console.error('⚠️ [Gemini Match Advice 에러] 로컬 폴백 텍스트 리턴:', error);
+    return fallbackMessage;
+  }
+}

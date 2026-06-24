@@ -1,5 +1,6 @@
 import { db } from '../config/firebase';
 import { MarriageValues, MatchResult } from '../types/matchTypes';
+import { generateMatchAdvice } from './geminiService';
 
 const mockMarriageValues = new Map<string, MarriageValues>();
 
@@ -48,63 +49,85 @@ const mockUsersForRecommendation = [
 
 export const MatchService = {
   /**
-   * 두 사용자의 결혼 가치관을 비교해 100점 만점의 매칭 점수를 계산합니다.
+   * 두 사용자의 결혼 가치관을 비교해 100점 만점의 가중치 기반 매칭 점수(Compatibility Score)를 계산합니다.
+   * 80점 미만 시 Gemini AI를 구동해 가치관 조정 조언을 실시간 생성합니다.
    */
-  calculateMatchScore: (u1: MarriageValues, u2: MarriageValues): MatchResult => {
-    let score = 0;
-    
-    // 1. 거주 의지 (35점 만점)
+  calculateMatchScore: async (u1: MarriageValues, u2: MarriageValues): Promise<MatchResult> => {
+    let childPlanScore = 0;
+    let residenceScore = 0;
+    let religionScore = 0;
+    let economicScore = 0;
+
+    // 1. 거주지/이주 의지 (30% 가중치 - 30점 만점)
     let residenceMatch = false;
-    if (u1.residenceWill === u2.residenceWill) {
-      score += 35;
-      residenceMatch = true;
-    } else if (u1.residenceWill === 'FLEXIBLE' || u2.residenceWill === 'FLEXIBLE') {
-      score += 35; 
+    if (u1.residenceWill === u2.residenceWill || u1.residenceWill === 'FLEXIBLE' || u2.residenceWill === 'FLEXIBLE') {
+      residenceScore = 30;
       residenceMatch = true;
     } else {
+      residenceScore = 0;
       residenceMatch = false;
     }
 
-    // 2. 자녀 계획 (25점 만점)
+    // 2. 자녀 계획 (30% 가중치 - 30점 만점)
     let childMatch = false;
     if (u1.childPlan === u2.childPlan) {
-      score += 25;
+      childPlanScore = 30;
       childMatch = true;
     } else if (u1.childPlan === 'DISCUSS' || u2.childPlan === 'DISCUSS') {
-      score += 15; 
-      childMatch = true; 
+      childPlanScore = 20;
+      childMatch = true;
     } else {
-      childMatch = false; 
+      childPlanScore = 0;
+      childMatch = false;
     }
 
-    // 3. 맞벌이 선호 (20점 만점)
+    // 3. 종교관 (20% 가중치 - 20점 만점)
+    let religionMatch = false;
+    if (u1.religion === u2.religion || u1.religion === 'NONE' || u2.religion === 'NONE') {
+      religionScore = 20;
+      religionMatch = true;
+    } else {
+      religionScore = 5;
+      religionMatch = false;
+    }
+
+    // 4. 경제관/맞벌이 (20% 가중치 - 20점 만점)
     let dualIncomeMatch = false;
     if (u1.dualIncome === u2.dualIncome || u1.dualIncome === 'FLEXIBLE' || u2.dualIncome === 'FLEXIBLE') {
-      score += 20;
+      economicScore = 20;
       dualIncomeMatch = true;
     } else {
-      score += 5; 
+      economicScore = 5;
       dualIncomeMatch = false;
     }
 
-    // 4. 종교 (20점 만점)
-    let religionMatch = false;
-    if (u1.religion === u2.religion || u1.religion === 'NONE' || u2.religion === 'NONE') {
-      score += 20;
-      religionMatch = true;
-    } else {
-      score += 5; 
-      religionMatch = false;
+    const score = childPlanScore + residenceScore + religionScore + economicScore;
+    const isBestMatch = score >= 80;
+
+    const compDetails = {
+      childPlanScore,
+      residenceScore,
+      religionScore,
+      economicScore
+    };
+
+    let aiAdvice: string | undefined = undefined;
+    if (score < 80) {
+      aiAdvice = await generateMatchAdvice(u1, u2, score, compDetails);
     }
 
     return {
       score,
-      isBestMatch: score >= 80,
+      isBestMatch,
       matchDetails: {
         residenceMatch,
         childMatch,
         dualIncomeMatch,
         religionMatch
+      },
+      compatibility: {
+        ...compDetails,
+        aiAdvice
       }
     };
   },
@@ -143,7 +166,7 @@ export const MatchService = {
   },
 
   /**
-   * 특정 유저에게 가치관 적합도가 높은 순서대로 추천 회원 목록을 반환합니다.
+   * 특정 유저에게 가치관 적합도가 높은 순서대로 추천 회원 목록을 반환합니다. (비동기 병렬 루프)
    */
   getRecommendedMatches: async (userId: string): Promise<any[]> => {
     let myValues = await MatchService.getMarriageValues(userId);
@@ -178,8 +201,8 @@ export const MatchService = {
       candidates = [...mockUsersForRecommendation];
     }
 
-    const results = candidates.map((c) => {
-      const matchResult = MatchService.calculateMatchScore(myValues!, c.marriageValues);
+    const results = await Promise.all(candidates.map(async (c) => {
+      const matchResult = await MatchService.calculateMatchScore(myValues!, c.marriageValues);
       return {
         userId: c.id,
         nickname: c.nickname,
@@ -187,7 +210,7 @@ export const MatchService = {
         country: c.country,
         matchResult
       };
-    });
+    }));
 
     return results.sort((a, b) => b.matchResult.score - a.matchResult.score);
   }
