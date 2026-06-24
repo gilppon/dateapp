@@ -90,6 +90,12 @@ def main():
     if not trust_success:
         print("\n[Verification Blocked] 신뢰 배지 검증 실패!")
         sys.exit(1)
+
+    # 11단계: 개인정보 세부 통제 및 검색 제외 E2E 검증
+    privacy_success, privacy_log = run_command("npx ts-node tests/privacyExclusionTest.ts", "개인정보 세부 통제 및 검색 제외 E2E 검증")
+    if not privacy_success:
+        print("\n[Verification Blocked] 개인정보 통제 검증 실패!")
+        sys.exit(1)
         
     print("\n====================================================")
     print("[ALL PASS] 모든 Verification SOP 게이트를 성공적으로 통과했습니다!")
@@ -103,6 +109,7 @@ def main():
     print("   - 상세 프로필 및 가치관: OK")
     print("   - 가치관 가중치 및 AI 조언: OK")
     print("   - 신뢰 배지 및 상호주의: OK")
+    print("   - 개인정보 세부 통제 및 검색 제외: OK")
     print("====================================================")
     sys.exit(0)
 

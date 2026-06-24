@@ -1,6 +1,7 @@
 import { db } from '../config/firebase';
 import { MarriageValues, MatchResult } from '../types/matchTypes';
 import { generateMatchAdvice } from './geminiService';
+import { PrivacyService } from './privacyService';
 
 const mockMarriageValues = new Map<string, MarriageValues>();
 
@@ -10,7 +11,10 @@ const mockUsersForRecommendation = [
     id: 'user_rec_01',
     nickname: '도쿄새댁',
     country: 'JP',
-    age: 26,
+    region: 'Tokyo',
+    job: 'UI Designer',
+    company: 'Sony',
+    industry: 'Electronics',
     marriageValues: {
       childPlan: 'WANT_CHILDREN' as const,
       residenceWill: 'FLEXIBLE' as const,
@@ -23,7 +27,10 @@ const mockUsersForRecommendation = [
     id: 'user_rec_02',
     nickname: '오사카김군',
     country: 'JP',
-    age: 31,
+    region: 'Osaka',
+    job: 'Sales Representative',
+    company: 'Keyence',
+    industry: 'Manufacturing',
     marriageValues: {
       childPlan: 'DISCUSS' as const,
       residenceWill: 'STAY_IN_JP' as const,
@@ -36,7 +43,10 @@ const mockUsersForRecommendation = [
     id: 'user_rec_03',
     nickname: '서울의 봄',
     country: 'KR',
-    age: 29,
+    region: 'Seoul',
+    job: 'Software Engineer',
+    company: 'Samsung Electronics',
+    industry: 'IT/Electronics',
     marriageValues: {
       childPlan: 'NO_CHILDREN' as const,
       residenceWill: 'STAY_IN_KR' as const,
@@ -193,6 +203,10 @@ export const MatchService = {
             nickname: data.nickname || '익명회원',
             age: data.age,
             country: data.country,
+            region: data.region,
+            job: data.job,
+            company: data.company,
+            industry: data.industry,
             marriageValues: data.marriageValues
           });
         }
@@ -201,14 +215,44 @@ export const MatchService = {
       candidates = [...mockUsersForRecommendation];
     }
 
-    const results = await Promise.all(candidates.map(async (c) => {
+    // Fetch viewer user profile data to check exclusion list criteria on B's side
+    let viewerUser: any = null;
+    try {
+      if (!db) throw new Error('NO_DB');
+      const viewerSnap = await db.collection('users').doc(userId).get();
+      viewerUser = viewerSnap.exists ? viewerSnap.data() : {};
+    } catch (e) {
+      // In mock/test mode, look for viewer inside mockRecommendation or default
+      const mockViewer = mockUsersForRecommendation.find(u => u.id === userId);
+      viewerUser = mockViewer || { id: userId, country: 'KR', region: 'Seoul', job: 'Software Engineer', company: 'Samsung Electronics', industry: 'IT/Electronics' };
+    }
+
+    const mySettings = await PrivacyService.getPrivacySettings(userId);
+
+    // Filter candidates bidirectionally using isUserExcluded
+    const filteredCandidates: any[] = [];
+    for (const c of candidates) {
+      // 1. Check if viewer A excludes candidate B
+      const isExcludedByMe = PrivacyService.isUserExcluded(c, mySettings);
+      
+      // 2. Check if candidate B excludes viewer A
+      const candidateSettings = await PrivacyService.getPrivacySettings(c.id);
+      const isExcludedByCandidate = PrivacyService.isUserExcluded(viewerUser, candidateSettings);
+
+      if (!isExcludedByMe && !isExcludedByCandidate) {
+        filteredCandidates.push(c);
+      }
+    }
+
+    const results = await Promise.all(filteredCandidates.map(async (c) => {
       const matchResult = await MatchService.calculateMatchScore(myValues!, c.marriageValues);
+      const maskedMatchResult = await PrivacyService.getMaskedMatchResult(matchResult, userId, c.id);
       return {
         userId: c.id,
         nickname: c.nickname,
         age: c.age,
         country: c.country,
-        matchResult
+        matchResult: maskedMatchResult
       };
     }));
 

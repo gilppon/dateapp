@@ -1,9 +1,11 @@
 import { db } from '../config/firebase';
 import { PrivacySettings, DEFAULT_PRIVACY_SETTINGS } from '../types/privacyTypes';
 import { VerificationService } from './verificationService';
+import { MatchResult } from '../types/matchTypes';
 
 // 가상 인메모리 DB (Firebase 비활성화 시 Fallback)
 const mockPrivacySettings = new Map<string, PrivacySettings>();
+const mockMatches = new Map<string, boolean>();
 
 export const PrivacyService = {
   /**
@@ -88,10 +90,27 @@ export const PrivacyService = {
         error.message.includes('credential') ||
         error.message.includes('auth')
       ) {
-        return false;
+        const matchId1 = `${userId1}_${userId2}`;
+        const matchId2 = `${userId2}_${userId1}`;
+        return !!(mockMatches.get(matchId1) || mockMatches.get(matchId2));
       }
       console.error('❌ 매칭 상태 조회 실패:', error);
       return false;
+    }
+  },
+
+  /**
+   * 테스트 목적으로 가상 매칭 상태를 강제 설정합니다. (Harness 전용)
+   */
+  setMatchForTest: async (userId1: string, userId2: string, status: 'MATCHED' | 'NONE'): Promise<void> => {
+    const isMatched = status === 'MATCHED';
+    try {
+      if (!db) throw new Error('NO_DB');
+      const matchId = `${userId1}_${userId2}`;
+      await db.collection('matches').doc(matchId).set({ status }, { merge: true });
+    } catch (e) {
+      const matchId = `${userId1}_${userId2}`;
+      mockMatches.set(matchId, isMatched);
     }
   },
 
@@ -261,5 +280,72 @@ export const PrivacyService = {
     masked.verificationBadges = finalBadges;
 
     return masked;
+  },
+
+  /**
+   * 상대방이 검색 제외 키워드(지역, 직업)에 저촉되는지 확인합니다.
+   */
+  isUserExcluded: (user: any, settings: PrivacySettings): boolean => {
+    if (!user) return false;
+
+    // 1. 지역 키워드 제외 체크
+    if (settings.excludeRegions && settings.excludeRegions.length > 0) {
+      const userRegion = (user.region || '').toLowerCase();
+      const userCountry = (user.country || '').toLowerCase();
+      const isRegionMatched = settings.excludeRegions.some(r => {
+        const rl = r.toLowerCase();
+        return userRegion.includes(rl) || userCountry.includes(rl);
+      });
+      if (isRegionMatched) return true;
+    }
+
+    // 2. 직업 키워드 제외 체크
+    if (settings.excludeJobs && settings.excludeJobs.length > 0) {
+      const userJob = (user.job || '').toLowerCase();
+      const userCompany = (user.company || '').toLowerCase();
+      const userIndustry = (user.industry || '').toLowerCase();
+      const isJobMatched = settings.excludeJobs.some(j => {
+        const jl = j.toLowerCase();
+        return userJob.includes(jl) || userCompany.includes(jl) || userIndustry.includes(jl);
+      });
+      if (isJobMatched) return true;
+    }
+
+    return false;
+  },
+
+  /**
+   * 매칭 결과(적합도 점수 및 세부 내역)를 매칭 성사 및 상호 동의 여부에 맞춰 마스킹합니다.
+   */
+  getMaskedMatchResult: async (matchResult: MatchResult, userId1: string, userId2: string): Promise<MatchResult> => {
+    const isMatched = await PrivacyService.checkMatchStatus(userId1, userId2);
+    if (!isMatched) {
+      // 매칭 전에는 compatibility(가치관별 상세 점수 및 AI 조언)은 비공개 처리하고 점수는 0점으로 마스킹
+      return {
+        score: 0,
+        isBestMatch: false,
+        matchDetails: {
+          residenceMatch: false,
+          childMatch: false,
+          dualIncomeMatch: false,
+          religionMatch: false
+        },
+        compatibility: undefined // 비공개
+      };
+    }
+
+    const settings1 = await PrivacyService.getPrivacySettings(userId1);
+    const settings2 = await PrivacyService.getPrivacySettings(userId2);
+
+    // 양측 동의(consentCompatibilityOpen === true) 여부 검사
+    if (settings1.consentCompatibilityOpen && settings2.consentCompatibilityOpen) {
+      return matchResult; // 상호 동의 시 전체 노출
+    }
+
+    // 매칭은 되었으나 상호 동의가 부족할 때 상세 결혼 적합도 필드 숨김
+    return {
+      ...matchResult,
+      compatibility: undefined // 비공개
+    };
   }
 };
