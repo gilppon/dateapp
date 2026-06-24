@@ -73,7 +73,7 @@ app.post('/api/verification/submit', async (req: Request, res: Response) => {
     return res.status(400).json({ error: '필수 요청 필드가 누락되었습니다. (userId, documentType, fileStoragePath)' });
   }
 
-  const validTypes: DocumentType[] = ['IDENTITY', 'EMPLOYMENT', 'MARITAL_STATUS'];
+  const validTypes: DocumentType[] = ['IDENTITY', 'EMPLOYMENT', 'MARITAL_STATUS', 'EDUCATION'];
   if (!validTypes.includes(documentType)) {
     return res.status(400).json({ error: `유효하지 않은 서류 타입입니다. 다음 중 하나여야 합니다: ${validTypes.join(', ')}` });
   }
@@ -342,7 +342,8 @@ app.get('/api/user/profile/:userId', async (req: Request, res: Response) => {
     if (!profile) {
       return res.status(404).json({ error: 'PROFILE_NOT_FOUND', message: '해당 사용자의 프로필이 존재하지 않습니다.' });
     }
-    return res.status(200).json({ success: true, profile });
+    const badges = await VerificationService.getActiveBadges(userId);
+    return res.status(200).json({ success: true, profile: { ...profile, verificationBadges: badges } });
   } catch (error: any) {
     return res.status(500).json({ error: error.message || '프로필 조회 도중 서버 에러가 발생했습니다.' });
   }

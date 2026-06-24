@@ -1,5 +1,6 @@
 import { db } from '../config/firebase';
 import { PrivacySettings, DEFAULT_PRIVACY_SETTINGS } from '../types/privacyTypes';
+import { VerificationService } from './verificationService';
 
 // 가상 인메모리 DB (Firebase 비활성화 시 Fallback)
 const mockPrivacySettings = new Map<string, PrivacySettings>();
@@ -184,7 +185,8 @@ export const PrivacyService = {
     }
 
     // 2. 전체 프로필 노출 수준(profileVisibility) 검사
-    const isViewerVerified = !!viewerUser.verificationBadges?.identityVerified;
+    const viewerBadges = mockDataOverride?.viewerUser?.verificationBadges || await VerificationService.getActiveBadges(viewerUserId);
+    const isViewerVerified = !!viewerBadges.identityVerified;
     if (settings.profileVisibility === 'NONE') {
       throw new Error('ACCESS_DENIED_PRIVATE');
     }
@@ -237,6 +239,26 @@ export const PrivacyService = {
     if (settings.incomeVisibility === 'PRIVATE' || (settings.incomeVisibility === 'VERIFIED_ONLY' && !isViewerVerified)) {
       delete masked.income;
     }
+
+    // (E) 신뢰 배지 상호주의(Reciprocity) 필터링 적용
+    const profileBadges = mockDataOverride?.profileUser?.verificationBadges || await VerificationService.getActiveBadges(profileUserId);
+    const finalBadges: any = { ...profileBadges };
+
+    if (!isMatched) {
+      if (!viewerBadges.employmentVerified && profileBadges.employmentVerified) {
+        finalBadges.employmentVerified = false;
+        finalBadges.employmentVerifiedLocked = true;
+      }
+      if (!viewerBadges.maritalStatusVerified && profileBadges.maritalStatusVerified) {
+        finalBadges.maritalStatusVerified = false;
+        finalBadges.maritalStatusVerifiedLocked = true;
+      }
+      if (!viewerBadges.educationVerified && profileBadges.educationVerified) {
+        finalBadges.educationVerified = false;
+        finalBadges.educationVerifiedLocked = true;
+      }
+    }
+    masked.verificationBadges = finalBadges;
 
     return masked;
   }

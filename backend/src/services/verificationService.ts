@@ -10,6 +10,29 @@ const mockBadges = new Map<string, VerificationBadgeInfo>();
 
 export const VerificationService = {
   /**
+   * 인증 서류 유형별 만료일자 계산 함수 (본인: 5년, 직업: 1년, 혼인: 3개월, 학력: 영구)
+   */
+  calculateExpirationDate: (documentType: DocumentType, approvedAt: Date): Date | undefined => {
+    const expired = new Date(approvedAt);
+    if (documentType === 'IDENTITY') {
+      expired.setFullYear(expired.getFullYear() + 5);
+      return expired;
+    }
+    if (documentType === 'EMPLOYMENT') {
+      expired.setFullYear(expired.getFullYear() + 1);
+      return expired;
+    }
+    if (documentType === 'MARITAL_STATUS') {
+      expired.setMonth(expired.getMonth() + 3);
+      return expired;
+    }
+    if (documentType === 'EDUCATION') {
+      return undefined; // 학력인증은 평생 유효 (만료 없음)
+    }
+    return undefined;
+  },
+
+  /**
    * 사용자가 인증 서류를 제출합니다. (GCP 인증 에러 대비 Mock Fallback 내장)
    */
   submitDocument: async (
@@ -78,9 +101,24 @@ export const VerificationService = {
       if (finalStatus === 'APPROVED') {
         const userRef = db.collection('users').doc(userId);
         const updateFields: any = {};
-        if (documentType === 'IDENTITY') updateFields['verificationBadges.identityVerified'] = true;
-        if (documentType === 'EMPLOYMENT') updateFields['verificationBadges.employmentVerified'] = true;
-        if (documentType === 'MARITAL_STATUS') updateFields['verificationBadges.maritalStatusVerified'] = true;
+        const expiredAt = VerificationService.calculateExpirationDate(documentType, now);
+        
+        if (documentType === 'IDENTITY') {
+          updateFields['verificationBadges.identityVerified'] = true;
+          if (expiredAt) updateFields['verificationBadges.identityExpiredAt'] = admin.firestore.Timestamp.fromDate(expiredAt);
+        }
+        if (documentType === 'EMPLOYMENT') {
+          updateFields['verificationBadges.employmentVerified'] = true;
+          if (expiredAt) updateFields['verificationBadges.employmentExpiredAt'] = admin.firestore.Timestamp.fromDate(expiredAt);
+        }
+        if (documentType === 'MARITAL_STATUS') {
+          updateFields['verificationBadges.maritalStatusVerified'] = true;
+          if (expiredAt) updateFields['verificationBadges.maritalStatusExpiredAt'] = admin.firestore.Timestamp.fromDate(expiredAt);
+        }
+        if (documentType === 'EDUCATION') {
+          updateFields['verificationBadges.educationVerified'] = true;
+          if (expiredAt) updateFields['verificationBadges.educationExpiredAt'] = admin.firestore.Timestamp.fromDate(expiredAt);
+        }
         updateFields['verificationBadges.verifiedAt'] = admin.firestore.Timestamp.fromDate(now);
         await userRef.set(updateFields, { merge: true });
       }
@@ -98,10 +136,30 @@ export const VerificationService = {
 
         // 메모리 배지 업데이트 (eKYC 자동 승인 시)
         if (finalStatus === 'APPROVED') {
-          let badges = mockBadges.get(userId) || { identityVerified: false, employmentVerified: false, maritalStatusVerified: false };
-          if (documentType === 'IDENTITY') badges.identityVerified = true;
-          if (documentType === 'EMPLOYMENT') badges.employmentVerified = true;
-          if (documentType === 'MARITAL_STATUS') badges.maritalStatusVerified = true;
+          let badges = mockBadges.get(userId) || { 
+            identityVerified: false, 
+            employmentVerified: false, 
+            maritalStatusVerified: false,
+            educationVerified: false
+          };
+          const expiredAt = VerificationService.calculateExpirationDate(documentType, now);
+          
+          if (documentType === 'IDENTITY') {
+            badges.identityVerified = true;
+            badges.identityExpiredAt = expiredAt;
+          }
+          if (documentType === 'EMPLOYMENT') {
+            badges.employmentVerified = true;
+            badges.employmentExpiredAt = expiredAt;
+          }
+          if (documentType === 'MARITAL_STATUS') {
+            badges.maritalStatusVerified = true;
+            badges.maritalStatusExpiredAt = expiredAt;
+          }
+          if (documentType === 'EDUCATION') {
+            badges.educationVerified = true;
+            badges.educationExpiredAt = expiredAt;
+          }
           badges.verifiedAt = now;
           mockBadges.set(userId, badges);
         }
@@ -150,9 +208,24 @@ export const VerificationService = {
       const isApproved = status === 'APPROVED';
 
       const updateFields: any = {};
-      if (documentType === 'IDENTITY') updateFields['verificationBadges.identityVerified'] = isApproved;
-      if (documentType === 'EMPLOYMENT') updateFields['verificationBadges.employmentVerified'] = isApproved;
-      if (documentType === 'MARITAL_STATUS') updateFields['verificationBadges.maritalStatusVerified'] = isApproved;
+      const expiredAt = isApproved ? VerificationService.calculateExpirationDate(documentType, now) : null;
+
+      if (documentType === 'IDENTITY') {
+        updateFields['verificationBadges.identityVerified'] = isApproved;
+        updateFields['verificationBadges.identityExpiredAt'] = expiredAt ? admin.firestore.Timestamp.fromDate(expiredAt) : null;
+      }
+      if (documentType === 'EMPLOYMENT') {
+        updateFields['verificationBadges.employmentVerified'] = isApproved;
+        updateFields['verificationBadges.employmentExpiredAt'] = expiredAt ? admin.firestore.Timestamp.fromDate(expiredAt) : null;
+      }
+      if (documentType === 'MARITAL_STATUS') {
+        updateFields['verificationBadges.maritalStatusVerified'] = isApproved;
+        updateFields['verificationBadges.maritalStatusExpiredAt'] = expiredAt ? admin.firestore.Timestamp.fromDate(expiredAt) : null;
+      }
+      if (documentType === 'EDUCATION') {
+        updateFields['verificationBadges.educationVerified'] = isApproved;
+        updateFields['verificationBadges.educationExpiredAt'] = expiredAt ? admin.firestore.Timestamp.fromDate(expiredAt) : null;
+      }
       updateFields['verificationBadges.verifiedAt'] = admin.firestore.Timestamp.fromDate(now);
 
       await userRef.set(updateFields, { merge: true });
@@ -186,11 +259,31 @@ export const VerificationService = {
         mockSecureDocuments.set(docId, existingDoc);
 
         // 가상 인증 배지 업데이트
-        let badges = mockBadges.get(userId) || { identityVerified: false, employmentVerified: false, maritalStatusVerified: false };
+        let badges = mockBadges.get(userId) || { 
+          identityVerified: false, 
+          employmentVerified: false, 
+          maritalStatusVerified: false,
+          educationVerified: false
+        };
         const isApproved = status === 'APPROVED';
-        if (documentType === 'IDENTITY') badges.identityVerified = isApproved;
-        if (documentType === 'EMPLOYMENT') badges.employmentVerified = isApproved;
-        if (documentType === 'MARITAL_STATUS') badges.maritalStatusVerified = isApproved;
+        const expiredAt = isApproved ? VerificationService.calculateExpirationDate(documentType, now) : undefined;
+        
+        if (documentType === 'IDENTITY') {
+          badges.identityVerified = isApproved;
+          badges.identityExpiredAt = expiredAt;
+        }
+        if (documentType === 'EMPLOYMENT') {
+          badges.employmentVerified = isApproved;
+          badges.employmentExpiredAt = expiredAt;
+        }
+        if (documentType === 'MARITAL_STATUS') {
+          badges.maritalStatusVerified = isApproved;
+          badges.maritalStatusExpiredAt = expiredAt;
+        }
+        if (documentType === 'EDUCATION') {
+          badges.educationVerified = isApproved;
+          badges.educationExpiredAt = expiredAt;
+        }
         badges.verifiedAt = now;
         mockBadges.set(userId, badges);
 
@@ -241,6 +334,141 @@ export const VerificationService = {
       }
       console.error('❌ Storage Signed URL 생성 실패:', error);
       return `https://mock-storage.googleapis.com/download/${fileStoragePath}?fallback=true`;
+    }
+  },
+
+  /**
+   * 테스트 목적으로 유저의 인증 배지를 강제 설정합니다. (Harness 전용)
+   */
+  setBadgesForTest: async (userId: string, badges: any): Promise<void> => {
+    try {
+      if (!db) throw new Error('NO_DB');
+      await db.collection('users').doc(userId).set({ verificationBadges: badges }, { merge: true });
+    } catch (e) {
+      mockBadges.set(userId, badges);
+    }
+  },
+
+  /**
+   * 만료 기간을 검증하여 유효한 신뢰 배지만 반환합니다. (Self-Healing 패턴)
+   */
+  getActiveBadges: async (userId: string): Promise<VerificationBadgeInfo> => {
+    const now = new Date();
+    const defaultBadges: VerificationBadgeInfo = {
+      identityVerified: false,
+      employmentVerified: false,
+      maritalStatusVerified: false,
+      educationVerified: false
+    };
+
+    try {
+      if (!db) throw new Error('NO_DB');
+      
+      const userRef = db.collection('users').doc(userId);
+      const snap = await userRef.get();
+      if (!snap.exists) return defaultBadges;
+
+      const data = snap.data();
+      const badges: VerificationBadgeInfo = data?.verificationBadges || { ...defaultBadges };
+
+      const parseDate = (val: any): Date | undefined => {
+        if (!val) return undefined;
+        return typeof val.toDate === 'function' ? val.toDate() : new Date(val);
+      };
+
+      const identityExpiredAt = parseDate(badges.identityExpiredAt);
+      const employmentExpiredAt = parseDate(badges.employmentExpiredAt);
+      const maritalStatusExpiredAt = parseDate(badges.maritalStatusExpiredAt);
+      const educationExpiredAt = parseDate(badges.educationExpiredAt);
+
+      let needsUpdate = false;
+      const updatedBadges = { ...badges };
+
+      // 1. IDENTITY 만료 검증
+      if (badges.identityVerified && identityExpiredAt && identityExpiredAt.getTime() < now.getTime()) {
+        updatedBadges.identityVerified = false;
+        needsUpdate = true;
+      }
+      // 2. EMPLOYMENT 만료 검증
+      if (badges.employmentVerified && employmentExpiredAt && employmentExpiredAt.getTime() < now.getTime()) {
+        updatedBadges.employmentVerified = false;
+        needsUpdate = true;
+      }
+      // 3. MARITAL_STATUS 만료 검증
+      if (badges.maritalStatusVerified && maritalStatusExpiredAt && maritalStatusExpiredAt.getTime() < now.getTime()) {
+        updatedBadges.maritalStatusVerified = false;
+        needsUpdate = true;
+      }
+      // 4. EDUCATION 만료 검증
+      if (badges.educationVerified && educationExpiredAt && educationExpiredAt.getTime() < now.getTime()) {
+        updatedBadges.educationVerified = false;
+        needsUpdate = true;
+      }
+
+      if (needsUpdate) {
+        await userRef.set({ verificationBadges: updatedBadges }, { merge: true });
+      }
+
+      return {
+        identityVerified: updatedBadges.identityVerified,
+        identityExpiredAt,
+        employmentVerified: updatedBadges.employmentVerified,
+        employmentExpiredAt,
+        maritalStatusVerified: updatedBadges.maritalStatusVerified,
+        maritalStatusExpiredAt,
+        educationVerified: updatedBadges.educationVerified,
+        educationExpiredAt,
+        verifiedAt: parseDate(updatedBadges.verifiedAt)
+      };
+
+    } catch (error: any) {
+      // Mock Fallback
+      let badges = mockBadges.get(userId) || { ...defaultBadges };
+      let needsUpdate = false;
+      const updatedBadges = { ...badges };
+
+      const parseDate = (val: any): Date | undefined => {
+        if (!val) return undefined;
+        return val instanceof Date ? val : new Date(val);
+      };
+
+      const identityExpiredAt = parseDate(badges.identityExpiredAt);
+      const employmentExpiredAt = parseDate(badges.employmentExpiredAt);
+      const maritalStatusExpiredAt = parseDate(badges.maritalStatusExpiredAt);
+      const educationExpiredAt = parseDate(badges.educationExpiredAt);
+
+      if (badges.identityVerified && identityExpiredAt && identityExpiredAt.getTime() < now.getTime()) {
+        updatedBadges.identityVerified = false;
+        needsUpdate = true;
+      }
+      if (badges.employmentVerified && employmentExpiredAt && employmentExpiredAt.getTime() < now.getTime()) {
+        updatedBadges.employmentVerified = false;
+        needsUpdate = true;
+      }
+      if (badges.maritalStatusVerified && maritalStatusExpiredAt && maritalStatusExpiredAt.getTime() < now.getTime()) {
+        updatedBadges.maritalStatusVerified = false;
+        needsUpdate = true;
+      }
+      if (badges.educationVerified && educationExpiredAt && educationExpiredAt.getTime() < now.getTime()) {
+        updatedBadges.educationVerified = false;
+        needsUpdate = true;
+      }
+
+      if (needsUpdate) {
+        mockBadges.set(userId, updatedBadges);
+      }
+
+      return {
+        identityVerified: updatedBadges.identityVerified,
+        identityExpiredAt,
+        employmentVerified: updatedBadges.employmentVerified,
+        employmentExpiredAt,
+        maritalStatusVerified: updatedBadges.maritalStatusVerified,
+        maritalStatusExpiredAt,
+        educationVerified: updatedBadges.educationVerified,
+        educationExpiredAt,
+        verifiedAt: parseDate(updatedBadges.verifiedAt)
+      };
     }
   }
 };

@@ -84,6 +84,12 @@ def main():
     if not advice_success:
         print("\n[Verification Blocked] AI 가치관 조언 검증 실패!")
         sys.exit(1)
+
+    # 10단계: 신뢰 배지 유효기간 및 상호주의 E2E 검증
+    trust_success, trust_log = run_command("npx ts-node tests/trustBadgeExpiryTest.ts", "신뢰 배지 유효기간 및 상호주의 E2E 검증")
+    if not trust_success:
+        print("\n[Verification Blocked] 신뢰 배지 검증 실패!")
+        sys.exit(1)
         
     print("\n====================================================")
     print("[ALL PASS] 모든 Verification SOP 게이트를 성공적으로 통과했습니다!")
@@ -96,6 +102,7 @@ def main():
     print("   - 한일 규제 준수 및 eKYC 보안: OK")
     print("   - 상세 프로필 및 가치관: OK")
     print("   - 가치관 가중치 및 AI 조언: OK")
+    print("   - 신뢰 배지 및 상호주의: OK")
     print("====================================================")
     sys.exit(0)
 

@@ -1,10 +1,15 @@
 export type VerificationStatus = 'PENDING' | 'SUBMITTED' | 'APPROVED' | 'REJECTED';
-export type DocumentType = 'IDENTITY' | 'EMPLOYMENT' | 'MARITAL_STATUS';
+export type DocumentType = 'IDENTITY' | 'EMPLOYMENT' | 'MARITAL_STATUS' | 'EDUCATION';
 
 export interface VerificationBadgeInfo {
   identityVerified: boolean;
+  identityExpiredAt?: Date;
   employmentVerified: boolean;
+  employmentExpiredAt?: Date;
   maritalStatusVerified: boolean;
+  maritalStatusExpiredAt?: Date;
+  educationVerified: boolean;
+  educationExpiredAt?: Date;
   verifiedAt?: Date;
 }
 

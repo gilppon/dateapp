@@ -29,6 +29,16 @@ interface ProfileEditProps {
   initialData: {
     userName: string;
     userRole: 'korean' | 'fan';
+    verificationBadges?: {
+      identityVerified: boolean;
+      employmentVerified: boolean;
+      maritalStatusVerified: boolean;
+      educationVerified: boolean;
+      identityExpiredAt?: string | Date;
+      employmentExpiredAt?: string | Date;
+      maritalStatusExpiredAt?: string | Date;
+      educationExpiredAt?: string | Date;
+    };
   };
   onSave: (data: Omit<ProfileData, 'userName' | 'userRole'> & { userName: string, userRole: 'korean' | 'fan' }) => void;
   onCancel?: () => void;
@@ -89,6 +99,60 @@ export default function ProfileEdit({ initialData, onSave, onCancel, isSubmittin
         <Divider style={styles.divider} />
         
         <Card.Content>
+          {/* 내 인증 신뢰 배지 현황 */}
+          <Surface style={styles.badgeStatusContainer} elevation={1}>
+            <Text style={styles.badgeSectionTitle}>🛡️ 나의 신뢰 인증 배지 현황</Text>
+            <View style={styles.badgeRow}>
+              <View style={styles.badgeCol}>
+                <Text style={styles.badgeIcon}>
+                  {initialData.verificationBadges?.identityVerified ? '🆔' : '⚪'}
+                </Text>
+                <Text style={[styles.badgeLabel, initialData.verificationBadges?.identityVerified ? styles.verifiedText : styles.unverifiedText]}>
+                  신원인증
+                </Text>
+                {initialData.verificationBadges?.identityVerified && initialData.verificationBadges?.identityExpiredAt && (
+                  <Text style={styles.expiryLabel}>~{new Date(initialData.verificationBadges.identityExpiredAt).toLocaleDateString()}</Text>
+                )}
+              </View>
+              <View style={styles.badgeCol}>
+                <Text style={styles.badgeIcon}>
+                  {initialData.verificationBadges?.employmentVerified ? '💼' : '⚪'}
+                </Text>
+                <Text style={[styles.badgeLabel, initialData.verificationBadges?.employmentVerified ? styles.verifiedText : styles.unverifiedText]}>
+                  재직인증
+                </Text>
+                {initialData.verificationBadges?.employmentVerified && initialData.verificationBadges?.employmentExpiredAt && (
+                  <Text style={styles.expiryLabel}>~{new Date(initialData.verificationBadges.employmentExpiredAt).toLocaleDateString()}</Text>
+                )}
+              </View>
+              <View style={styles.badgeCol}>
+                <Text style={styles.badgeIcon}>
+                  {initialData.verificationBadges?.maritalStatusVerified ? '💍' : '⚪'}
+                </Text>
+                <Text style={[styles.badgeLabel, initialData.verificationBadges?.maritalStatusVerified ? styles.verifiedText : styles.unverifiedText]}>
+                  미혼인증
+                </Text>
+                {initialData.verificationBadges?.maritalStatusVerified && initialData.verificationBadges?.maritalStatusExpiredAt && (
+                  <Text style={styles.expiryLabel}>~{new Date(initialData.verificationBadges.maritalStatusExpiredAt).toLocaleDateString()}</Text>
+                )}
+              </View>
+              <View style={styles.badgeCol}>
+                <Text style={styles.badgeIcon}>
+                  {initialData.verificationBadges?.educationVerified ? '🎓' : '⚪'}
+                </Text>
+                <Text style={[styles.badgeLabel, initialData.verificationBadges?.educationVerified ? styles.verifiedText : styles.unverifiedText]}>
+                  학력인증
+                </Text>
+                {initialData.verificationBadges?.educationVerified && initialData.verificationBadges?.educationExpiredAt && (
+                  <Text style={styles.expiryLabel}>~{new Date(initialData.verificationBadges.educationExpiredAt).toLocaleDateString()}</Text>
+                )}
+              </View>
+            </View>
+            <Text style={styles.badgeInfoText}>
+              ※ 공인 서류 기반 심사를 거쳐 발급됩니다. 상호주의(Reciprocity) 가드가 적용되어, 본인이 먼저 인증한 배지만 상대방에게도 공개되고 열람할 수 있습니다.
+            </Text>
+          </Surface>
+
           {/* 1. 종교 설정 (필수) */}
           <View style={styles.section}>
             <Text style={styles.label}>
@@ -353,5 +417,54 @@ const styles = StyleSheet.create({
   },
   actionBtn: {
     borderRadius: 8,
+  },
+  badgeStatusContainer: {
+    padding: 14,
+    backgroundColor: '#161420',
+    borderRadius: 12,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#2D2B3B',
+  },
+  badgeSectionTitle: {
+    fontSize: 13,
+    color: '#00F0FF',
+    fontWeight: 'bold',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 10,
+  },
+  badgeCol: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  badgeIcon: {
+    fontSize: 22,
+    marginBottom: 2,
+  },
+  badgeLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  expiryLabel: {
+    fontSize: 8,
+    color: '#8A869F',
+    marginTop: 2,
+  },
+  verifiedText: {
+    color: '#00E676',
+  },
+  unverifiedText: {
+    color: '#8A869F',
+  },
+  badgeInfoText: {
+    fontSize: 9,
+    color: '#8A869F',
+    textAlign: 'center',
+    lineHeight: 13,
   }
 });

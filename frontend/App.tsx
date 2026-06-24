@@ -250,6 +250,13 @@ export default function App() {
   const [profileCompleted, setProfileCompleted] = useState(false);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [userBadges, setUserBadges] = useState<any>({
+    identityVerified: false,
+    employmentVerified: false,
+    maritalStatusVerified: false,
+    educationVerified: false
+  });
+  const [peerProfile, setPeerProfile] = useState<any>(null);
 
   const [roomId, setRoomId] = useState('k-wave-match-room-1');
   const [inCall, setInCall] = useState(false);
@@ -267,6 +274,48 @@ export default function App() {
       disconnectSocket();
     };
   }, []);
+
+  const fetchOwnProfileAndBadges = async () => {
+    if (!userId) return;
+    try {
+      const response = await fetch(`http://127.0.0.1:3000/api/user/profile/${userId}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.profile?.verificationBadges) {
+          setUserBadges(data.profile.verificationBadges);
+        }
+      }
+    } catch (err) {
+      console.warn('프로필 배지 조회 실패:', err);
+    }
+  };
+
+  const fetchPeerProfile = async (id: string) => {
+    if (!userId) return;
+    try {
+      const response = await fetch(`http://127.0.0.1:3000/api/profile/${id}?viewerUserId=${userId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setPeerProfile(data.profile);
+      }
+    } catch (err) {
+      console.warn('상대방 프로필 로드 실패:', err);
+    }
+  };
+
+  useEffect(() => {
+    if (userId) {
+      fetchOwnProfileAndBadges();
+    }
+  }, [userId, isEditMode]);
+
+  useEffect(() => {
+    if (peerId) {
+      fetchPeerProfile(peerId);
+    } else {
+      setPeerProfile(null);
+    }
+  }, [peerId]);
 
   useEffect(() => {
     if (inCall && peerId) {
@@ -511,7 +560,7 @@ export default function App() {
             </Card>
           ) : (!profileCompleted || isEditMode) ? (
             <ProfileEdit
-              initialData={{ userName, userRole }}
+              initialData={{ userName, userRole, verificationBadges: userBadges }}
               onSave={saveDetailedProfile}
               onCancel={isEditMode ? () => setIsEditMode(false) : undefined}
               isSubmitting={isSavingProfile}
@@ -582,9 +631,56 @@ export default function App() {
                         <Animated.View style={[styles.waveCircle, { transform: [{ scale: waveAnim }] }]}>
                           <Avatar.Icon size={40} icon="microphone" style={{ backgroundColor: theme.colors.primary }} />
                         </Animated.View>
-                        <View style={{ marginLeft: 16 }}>
+                        <View style={{ marginLeft: 16, flex: 1 }}>
                           <Text variant="titleMedium" style={{ color: '#FFF', fontWeight: 'bold' }}>메이트: {peerId}</Text>
                           <Text variant="bodySmall" style={{ color: theme.colors.accent }}>초저지연 PCM 터널링 연결 수립 완료</Text>
+                          
+                          {/* 상대방 신뢰 배지 (상호주의 가드 반영) */}
+                          {peerProfile?.verificationBadges && (
+                            <View style={styles.peerBadgeRow}>
+                              <View style={styles.peerBadgeChip}>
+                                <Text style={styles.peerBadgeIcon}>
+                                  {peerProfile.verificationBadges.identityVerified ? '🆔' : '🔒'}
+                                </Text>
+                                <Text style={styles.peerBadgeText}>신원</Text>
+                              </View>
+                              <View style={styles.peerBadgeChip}>
+                                <Text style={styles.peerBadgeIcon}>
+                                  {peerProfile.verificationBadges.employmentVerified 
+                                    ? '💼' 
+                                    : peerProfile.verificationBadges.employmentVerifiedLocked 
+                                      ? '🔒' 
+                                      : '⚪'}
+                                </Text>
+                                <Text style={styles.peerBadgeText}>직장</Text>
+                              </View>
+                              <View style={styles.peerBadgeChip}>
+                                <Text style={styles.peerBadgeIcon}>
+                                  {peerProfile.verificationBadges.maritalStatusVerified 
+                                    ? '💍' 
+                                    : peerProfile.verificationBadges.maritalStatusVerifiedLocked 
+                                      ? '🔒' 
+                                      : '⚪'}
+                                </Text>
+                                <Text style={styles.peerBadgeText}>미혼</Text>
+                              </View>
+                              <View style={styles.peerBadgeChip}>
+                                <Text style={styles.peerBadgeIcon}>
+                                  {peerProfile.verificationBadges.educationVerified 
+                                    ? '🎓' 
+                                    : peerProfile.verificationBadges.educationVerifiedLocked 
+                                      ? '🔒' 
+                                      : '⚪'}
+                                </Text>
+                                <Text style={styles.peerBadgeText}>학력</Text>
+                              </View>
+                            </View>
+                          )}
+                          {peerProfile?.verificationBadges && (
+                            <Text style={styles.lockGuideText}>
+                              ※ 🔒 표시 배지는 본인의 동일 인증 완료 시 공개됩니다.
+                            </Text>
+                          )}
                         </View>
                       </View>
                     )}
@@ -763,5 +859,36 @@ const styles = StyleSheet.create({
     backgroundColor: '#161420',
     borderRadius: 12,
     overflow: 'hidden',
+  },
+  peerBadgeRow: {
+    flexDirection: 'row',
+    marginTop: 8,
+    flexWrap: 'wrap',
+  },
+  peerBadgeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#2D2B3B',
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginRight: 6,
+    marginBottom: 4,
+    borderWidth: 1,
+    borderColor: '#3D3B4B',
+  },
+  peerBadgeIcon: {
+    fontSize: 12,
+    marginRight: 3,
+  },
+  peerBadgeText: {
+    fontSize: 10,
+    color: '#BBB9C7',
+    fontWeight: 'bold',
+  },
+  lockGuideText: {
+    fontSize: 9,
+    color: '#8A869F',
+    marginTop: 4,
   }
 });
