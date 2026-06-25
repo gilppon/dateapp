@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, View, ScrollView, SafeAreaView, Alert, Animated } from 'react-native';
+import { StyleSheet, View, ScrollView, SafeAreaView, Alert, Animated, Image, Modal, TouchableOpacity } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { 
   Provider as PaperProvider, 
@@ -12,25 +12,29 @@ import {
   Banner,
   ActivityIndicator,
   Surface,
-  ProgressBar
+  ProgressBar,
+  IconButton,
+  Divider,
+  Chip
 } from 'react-native-paper';
 import { StatusBar } from 'expo-status-bar';
 import { AudioStreamer } from './src/utils/AudioStreamer';
 import ProfileEdit from './src/components/ProfileEdit';
 
-// WOW 팩터가 가미된 세련된 K-Wave 하모니어스 핑크 & 네이비 다크 테마
+// WOW 팩터가 가미된 세련된 K-Wave 하모니어스 핑크 & 네이비 다크 테마 (MD3 규격)
 const theme = {
   ...DefaultTheme,
   colors: {
     ...DefaultTheme.colors,
-    primary: '#FF2E93',       // 트렌디하고 네온 느낌의 강렬한 핫핑크
-    secondary: '#7C4DFF',     // 매혹적인 네온 바이올렛
-    background: '#0F0E17',    // 고급스러운 칠흑색 백그라운드
-    surface: '#1F1E26',       // 따뜻하고 깊이감 있는 퍼플그레이 표면
+    primary: '#FF8A80',       // Sakura Coral Pink
+    secondary: '#3F51B5',     // Indigo Navy
+    background: '#0D0B14',    // Deep Purple-Black
+    surface: '#181524',       // Dark Violet Surface
     error: '#FF5252',
-    accent: '#00F0FF',        // 형광 사이언 하이라이트
+    accent: '#00E5FF',        // Fluorescent Cyan
   },
 };
+
 
 // 소개팅 앱 번아웃 원인과 대안을 구현한 Matter.js 물리 시뮬레이션 HTML
 const matterHtmlString = `
@@ -254,9 +258,28 @@ export default function App() {
     identityVerified: false,
     employmentVerified: false,
     maritalStatusVerified: false,
-    educationVerified: false
+    educationVerified: false,
+    identityExpiredAt: new Date(Date.now() + 365*24*60*60*1000).toISOString(),
+    employmentExpiredAt: new Date(Date.now() + 180*24*60*60*1000).toISOString(),
+    maritalStatusExpiredAt: new Date(Date.now() + 90*24*60*60*1000).toISOString(),
+    educationExpiredAt: new Date(Date.now() + 365*24*60*60*1000).toISOString()
   });
   const [peerProfile, setPeerProfile] = useState<any>(null);
+
+  // 컨시어지 상담사 채팅 상태
+  const [isConciergeOpen, setIsConciergeOpen] = useState(false);
+  const [conciergeMessages, setConciergeMessages] = useState<Array<{ sender: 'user' | 'concierge' | 'system', text: string }>>([
+    { sender: 'concierge', text: '안녕하세요! Hana-Il Marriage Match 전담 커플매니저(컨시어지)입니다. 두 분의 가치관 호환성에 대해 조언이 필요하시거나, 프로필 열람을 위한 대화 가이드가 필요하면 말씀해 주세요! 🌸' }
+  ]);
+  const [newConciergeMsg, setNewConciergeMsg] = useState('');
+
+  // 탭 동의요청 다이얼로그 상태
+  const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
+  const [requestTargetBadge, setRequestTargetBadge] = useState<string>(''); // 'employment' | 'marital' | 'education'
+  const [requestLanguage, setRequestLanguage] = useState<'ko' | 'ja'>('ko');
+
+  // AI 매칭 상세 분석 모달 상태
+  const [isBreakdownOpen, setIsBreakdownOpen] = useState(false);
 
   const [roomId, setRoomId] = useState('k-wave-match-room-1');
   const [inCall, setInCall] = useState(false);
@@ -448,6 +471,47 @@ export default function App() {
     setIsRegistered(true);
   };
 
+  // 컨시어지 채팅 전송 함수
+  const sendConciergeMessage = () => {
+    if (!newConciergeMsg.trim()) return;
+    const userMsg = newConciergeMsg;
+    setConciergeMessages(prev => [...prev, { sender: 'user', text: userMsg }]);
+    setNewConciergeMsg('');
+
+    // AI 자동 응답 지연 시뮬레이션
+    setTimeout(() => {
+      let aiReply = '대표님, 매칭 상대를 사로잡는 경어체를 추천해 드립니다! "바쁘신 와중에 답장 주셔서 감사합니다(お忙しい中ご返信いただきありがとうございます)"라고 건네보세요.';
+      if (userMsg.includes('적합도') || userMsg.includes('조정')) {
+        aiReply = '현재 두 분은 종교 가치관(개신교-무교)에서 약간의 입장 차이가 있습니다. "종교 활동은 서로의 생활 패턴을 존중하며 강요하지 않는다"는 양해 각서를 가볍게 나누시면 결혼 적합도가 95%까지 올라갑니다!';
+      } else if (userMsg.includes('배지') || userMsg.includes('공개')) {
+        aiReply = '상대방의 배지가 🔒(Locked)로 보인다면, 탭하여 정중한 일본어 경어(Keigo) 메시지를 보내 공개를 유도하시는 편이 가장 빠릅니다. 저희 컨시어지가 즉시 정중한 요청 카드를 보냅니다.';
+      }
+      setConciergeMessages(prev => [...prev, { sender: 'concierge', text: aiReply }]);
+    }, 1000);
+  };
+
+  // 배지 공개 요청 보내기
+  const sendBadgePermissionRequest = (badgeType: string, lang: 'ko' | 'ja') => {
+    const badgeNameMap: any = {
+      employment: { ko: '재직(💼) 정보', ja: '在職(💼)情報' },
+      marital: { ko: '미혼/혼인관계(💍) 정보', ja: '独身(💍)証明' },
+      education: { ko: '학력(🎓) 정보', ja: '学歴(🎓)情報' }
+    };
+    const badgeName = badgeNameMap[badgeType]?.[lang] || badgeType;
+
+    const messageTemplate = lang === 'ja'
+      ? `【컨시어지 매너 알림】 상대방으로부터 ${badgeName}에 대한 상호 공개 요청이 도착했습니다. "상호주의 원칙"에 의거하여 양측 동의 시 정보를 서로 열람할 수 있습니다. 동의하시겠습니까?`
+      : `【コンシェルジュ通知】 相手から${badgeName}の相互公開リクエストが届きました。「相互主義の原則」に基づき、お互いに同意すると閲覧可能になります。同意しますか？`;
+
+    // 시스템 메시지 형태로 전송하는 척 시뮬레이션
+    setConciergeMessages(prev => [
+      ...prev, 
+      { sender: 'system', text: `상대방에게 배지 상호 열람 동의 메시지(Keigo)를 전송했습니다: \n"${messageTemplate}"` }
+    ]);
+    setIsRequestModalOpen(false);
+    Alert.alert('요청 전송 완료', '상대방에게 정중한 경어체 동의 요청이 발송되었습니다.');
+  };
+
   // 상세 프로필 백엔드 API 연동 저장 처리
   const saveDetailedProfile = async (profileData: any) => {
     setIsSavingProfile(true);
@@ -470,6 +534,15 @@ export default function App() {
 
       setProfileCompleted(true);
       setIsEditMode(false);
+      // 내 배지 현황 업데이트
+      if (profileData.religion) {
+        setUserBadges((prev: any) => ({
+          ...prev,
+          identityVerified: true, // 상세입력 시 기본인증 완료로 처리
+          employmentVerified: true,
+          maritalStatusVerified: true
+        }));
+      }
       Alert.alert('성공', '상세 프로필 정보가 성공적으로 반영되었습니다!');
     } catch (error: any) {
       Alert.alert('프로필 저장 실패', error.message || '네트워크 상태를 확인해 주세요.');
@@ -478,13 +551,23 @@ export default function App() {
     }
   };
 
+
   return (
     <PaperProvider theme={theme}>
       <StatusBar style="light" />
-      <SafeAreaView style={styles.container}>
+      <View style={styles.outerWrapper}>
+        <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <Text variant="headlineMedium" style={styles.titleText}>korea aimasu 🇰🇷💖</Text>
-          <Text variant="bodySmall" style={styles.subtitleText}>한류 팬과 한국인의 초저지연 프라이빗 보이스 데이트</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text variant="headlineMedium" style={styles.titleText}>Hana-Il Marriage Match 🇯🇵🇰🇷</Text>
+            <IconButton
+              icon="account-question-outline"
+              iconColor={theme.colors.accent}
+              size={26}
+              onPress={() => setIsConciergeOpen(true)}
+            />
+          </View>
+          <Text variant="bodySmall" style={styles.subtitleText}>한일 특화 가치관 매칭 & 실시간 AI 컨시어지 서비스</Text>
         </View>
 
         <Banner
@@ -507,21 +590,27 @@ export default function App() {
         <ScrollView contentContainerStyle={styles.scrollContent}>
           {!isRegistered ? (
             <Card style={styles.card} mode="elevated">
+              <Image 
+                source={require('./assets/main_visual.png')} 
+                style={styles.heroImage} 
+                resizeMode="cover"
+              />
               <Card.Title 
-                title="글로벌 프로필 설정" 
-                subtitle="익명으로 매칭되어 안전하고 비밀스럽게 대화하세요" 
+                title="Hana-Il Marriage Match 🇯🇵🇰🇷" 
+                subtitle="실사 매칭 기반 한일 결혼 특화 매칭 시스템" 
                 titleStyle={styles.cardTitle}
                 subtitleStyle={styles.cardSubtitle}
               />
-              <Card.Content>
+              <Card.Content style={{ marginTop: 8 }}>
                 <TextInput
                   label="메이트 닉네임"
                   value={userName}
                   onChangeText={setUserName}
-                  mode="flat"
-                  underlineColor="transparent"
+                  mode="outlined"
                   textColor="#FFF"
-                  activeUnderlineColor={theme.colors.primary}
+                  activeOutlineColor={theme.colors.accent}
+                  outlineColor="#2D2B3B"
+                  theme={{ colors: { background: '#181524' } }}
                   style={styles.input}
                 />
                 
@@ -532,7 +621,7 @@ export default function App() {
                     onPress={() => setUserRole('korean')}
                     style={styles.roleButton}
                     buttonColor={userRole === 'korean' ? theme.colors.primary : undefined}
-                    textColor={userRole === 'korean' ? '#FFF' : theme.colors.primary}
+                    textColor={userRole === 'korean' ? '#0D0B14' : theme.colors.primary}
                   >
                     한국인 메이트 🇰🇷
                   </Button>
@@ -541,9 +630,9 @@ export default function App() {
                     onPress={() => setUserRole('fan')}
                     style={styles.roleButton}
                     buttonColor={userRole === 'fan' ? theme.colors.secondary : undefined}
-                    textColor={userRole === 'fan' ? '#FFF' : theme.colors.secondary}
+                    textColor={userRole === 'fan' ? '#FFF' : theme.colors.primary}
                   >
-                    한류 팬 메이트 🌍
+                    일인/해외 메이트 🇯🇵🌍
                   </Button>
                 </View>
               </Card.Content>
@@ -551,8 +640,9 @@ export default function App() {
                 <Button 
                   mode="contained" 
                   buttonColor={theme.colors.primary} 
+                  textColor="#0D0B14"
                   onPress={handleRegister}
-                  style={{ width: '100%', paddingVertical: 4 }}
+                  style={{ width: '100%', paddingVertical: 4, borderRadius: 8 }}
                 >
                   프로필 등록 및 대기실 가기 🚀
                 </Button>
@@ -567,6 +657,7 @@ export default function App() {
             />
           ) : (
             <View>
+              {/* 내 신뢰 인증 배지 현황 대시보드 카드 */}
               <Card style={styles.card} mode="contained">
                 <Card.Content style={styles.userInfoContent}>
                   <Avatar.Icon 
@@ -575,9 +666,9 @@ export default function App() {
                     style={{ backgroundColor: userRole === 'korean' ? theme.colors.primary : theme.colors.secondary }} 
                   />
                   <View style={styles.userInfoText}>
-                    <Text variant="titleLarge" style={{ color: '#FFF', fontWeight: 'bold' }}>{userName}</Text>
+                    <Text variant="titleLarge" style={{ color: '#FFF', fontWeight: 'bold' }}>{userName} 님</Text>
                     <Text variant="bodyMedium" style={{ color: '#AAA' }}>
-                      {userRole === 'korean' ? 'Seoul, South Korea 🇰🇷' : 'K-Wave Passionate Fan 🌍'}
+                      {userRole === 'korean' ? 'Seoul, South Korea 🇰🇷' : 'Tokyo, Japan 🇯🇵'}
                     </Text>
                   </View>
                   <View style={{ flex: 1, alignItems: 'flex-end' }}>
@@ -591,7 +682,30 @@ export default function App() {
                     </Button>
                   </View>
                 </Card.Content>
+                <Divider style={{ backgroundColor: '#2D2B3B' }} />
+                <Card.Content style={{ paddingVertical: 12 }}>
+                  <Text variant="bodySmall" style={{ color: '#8A869F', fontWeight: 'bold', marginBottom: 6 }}>🛡️ 활성화된 내 신뢰 배지 (유효기간)</Text>
+                  <View style={styles.ownBadgeContainer}>
+                    <View style={styles.ownBadgeItem}>
+                      <Text style={{ fontSize: 16 }}>🆔</Text>
+                      <Text style={styles.ownBadgeLabel}>신원 (1년)</Text>
+                    </View>
+                    <View style={styles.ownBadgeItem}>
+                      <Text style={{ fontSize: 16 }}>💼</Text>
+                      <Text style={styles.ownBadgeLabel}>직장 (6개월)</Text>
+                    </View>
+                    <View style={styles.ownBadgeItem}>
+                      <Text style={{ fontSize: 16 }}>💍</Text>
+                      <Text style={styles.ownBadgeLabel}>미혼 (3개월)</Text>
+                    </View>
+                    <View style={styles.ownBadgeItem}>
+                      <Text style={{ fontSize: 16 }}>🎓</Text>
+                      <Text style={styles.ownBadgeLabel}>학력 (무제한)</Text>
+                    </View>
+                  </View>
+                </Card.Content>
               </Card>
+
 
               <Card style={styles.card}>
                 <Card.Title 
@@ -632,59 +746,132 @@ export default function App() {
                           <Avatar.Icon size={40} icon="microphone" style={{ backgroundColor: theme.colors.primary }} />
                         </Animated.View>
                         <View style={{ marginLeft: 16, flex: 1 }}>
-                          <Text variant="titleMedium" style={{ color: '#FFF', fontWeight: 'bold' }}>메이트: {peerId}</Text>
+                          <Text variant="titleMedium" style={{ color: '#FFF', fontWeight: 'bold' }}>상대 메이트: {peerId}</Text>
                           <Text variant="bodySmall" style={{ color: theme.colors.accent }}>초저지연 PCM 터널링 연결 수립 완료</Text>
-                          
-                          {/* 상대방 신뢰 배지 (상호주의 가드 반영) */}
-                          {peerProfile?.verificationBadges && (
-                            <View style={styles.peerBadgeRow}>
-                              <View style={styles.peerBadgeChip}>
-                                <Text style={styles.peerBadgeIcon}>
-                                  {peerProfile.verificationBadges.identityVerified ? '🆔' : '🔒'}
-                                </Text>
-                                <Text style={styles.peerBadgeText}>신원</Text>
-                              </View>
-                              <View style={styles.peerBadgeChip}>
-                                <Text style={styles.peerBadgeIcon}>
-                                  {peerProfile.verificationBadges.employmentVerified 
-                                    ? '💼' 
-                                    : peerProfile.verificationBadges.employmentVerifiedLocked 
-                                      ? '🔒' 
-                                      : '⚪'}
-                                </Text>
-                                <Text style={styles.peerBadgeText}>직장</Text>
-                              </View>
-                              <View style={styles.peerBadgeChip}>
-                                <Text style={styles.peerBadgeIcon}>
-                                  {peerProfile.verificationBadges.maritalStatusVerified 
-                                    ? '💍' 
-                                    : peerProfile.verificationBadges.maritalStatusVerifiedLocked 
-                                      ? '🔒' 
-                                      : '⚪'}
-                                </Text>
-                                <Text style={styles.peerBadgeText}>미혼</Text>
-                              </View>
-                              <View style={styles.peerBadgeChip}>
-                                <Text style={styles.peerBadgeIcon}>
-                                  {peerProfile.verificationBadges.educationVerified 
-                                    ? '🎓' 
-                                    : peerProfile.verificationBadges.educationVerifiedLocked 
-                                      ? '🔒' 
-                                      : '⚪'}
-                                </Text>
-                                <Text style={styles.peerBadgeText}>학력</Text>
-                              </View>
-                            </View>
-                          )}
-                          {peerProfile?.verificationBadges && (
-                            <Text style={styles.lockGuideText}>
-                              ※ 🔒 표시 배지는 본인의 동일 인증 완료 시 공개됩니다.
-                            </Text>
-                          )}
                         </View>
                       </View>
                     )}
                   </Surface>
+
+                  {/* 1:1 매칭 완료 후 Match Discovery Feed 카드 및 가치관 적합도 대시보드 */}
+                  {inCall && peerId && (
+                    <Card style={[styles.card, { marginTop: 12, backgroundColor: '#181524' }]} mode="elevated">
+                      <Card.Content>
+                        {/* 프로필 헤더: 이미지 Placeholder, 이름, 나이, 지역 */}
+                        <View style={styles.discoveryHeader}>
+                          <Surface style={styles.profilePlaceholder} elevation={2}>
+                            <Text style={{ fontSize: 24 }}>✨</Text>
+                          </Surface>
+                          <View style={{ marginLeft: 12, flex: 1 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                              <Text variant="titleMedium" style={{ color: '#FFF', fontWeight: 'bold' }}>{peerId} 님</Text>
+                              <Text variant="bodyMedium" style={{ color: '#8A869F', marginLeft: 6 }}>28세</Text>
+                            </View>
+                            <Text variant="bodySmall" style={{ color: '#00E5FF', marginTop: 2 }}>📍 Tokyo, Japan 🇯🇵</Text>
+                          </View>
+                          
+                          {/* 92% Compatibility Score 배지 (탭 시 Match Breakdown 모달 노출) */}
+                          <TouchableOpacity onPress={() => setIsBreakdownOpen(true)}>
+                            <Surface style={styles.compatBadge} elevation={3}>
+                              <Text style={styles.compatBadgeText}>호합도 92% 🔍</Text>
+                            </Surface>
+                          </TouchableOpacity>
+                        </View>
+
+                        {/* 신뢰 마이크로 배지 */}
+                        <View style={styles.peerBadgeRow}>
+                          <TouchableOpacity 
+                            style={styles.microBadgeChip} 
+                            onPress={() => Alert.alert('ID Verified', '여권 정보 및 본인 확인 검증 완료')}
+                          >
+                            <Text style={styles.microBadgeText}>🆔 ID Verified</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity 
+                            style={styles.microBadgeChip} 
+                            onPress={() => {
+                              setRequestTargetBadge('employment');
+                              setIsRequestModalOpen(true);
+                            }}
+                          >
+                            <Text style={styles.microBadgeText}>🔒 Employment Verified</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity 
+                            style={styles.microBadgeChip} 
+                            onPress={() => {
+                              setRequestTargetBadge('marital');
+                              setIsRequestModalOpen(true);
+                            }}
+                          >
+                            <Text style={styles.microBadgeText}>🔒 Single Status Verified</Text>
+                          </TouchableOpacity>
+                        </View>
+
+                        <Divider style={{ marginVertical: 12, backgroundColor: '#2D2B3B' }} />
+
+                        {/* 4분면 가치관 레이더 인디케이터 */}
+                        <Text variant="bodySmall" style={{ color: '#8A869F', fontWeight: 'bold', marginBottom: 8 }}>📊 4분면 가치관 적합도 분석</Text>
+                        <View style={styles.radarGrid}>
+                          <View style={styles.radarItem}>
+                            <Text style={styles.radarLabel}>자녀 계획</Text>
+                            <ProgressBar progress={0.9} color="#FF8A80" style={{ height: 4, borderRadius: 2, width: 80 }} />
+                            <Text style={styles.radarStatus}>일치 💚</Text>
+                          </View>
+                          <View style={styles.radarItem}>
+                            <Text style={styles.radarLabel}>거주지 선호</Text>
+                            <ProgressBar progress={0.7} color="#3F51B5" style={{ height: 4, borderRadius: 2, width: 80 }} />
+                            <Text style={styles.radarStatus}>협의필요 ⚠️</Text>
+                          </View>
+                          <View style={styles.radarItem}>
+                            <Text style={styles.radarLabel}>종교적 호환</Text>
+                            <ProgressBar progress={0.95} color="#FF8A80" style={{ height: 4, borderRadius: 2, width: 80 }} />
+                            <Text style={styles.radarStatus}>일치 💚</Text>
+                          </View>
+                          <View style={styles.radarItem}>
+                            <Text style={styles.radarLabel}>재정/경제관</Text>
+                            <ProgressBar progress={0.85} color="#FF8A80" style={{ height: 4, borderRadius: 2, width: 80 }} />
+                            <Text style={styles.radarStatus}>일치 💚</Text>
+                          </View>
+                        </View>
+
+                        {/* 핵심 가치관 요약 칩 섹션 */}
+                        <View style={styles.valuesSummary}>
+                          <Chip style={styles.valueSummaryChip} textStyle={styles.valueSummaryChipText}>👶 Wants 2 Kids</Chip>
+                          <Chip style={styles.valueSummaryChip} textStyle={styles.valueSummaryChipText}>🇯🇵 Prefers Living in Japan</Chip>
+                          <Chip style={styles.valueSummaryChip} textStyle={styles.valueSummaryChipText}>🚭 Non-smoker</Chip>
+                        </View>
+
+                        <Surface style={{ backgroundColor: '#0D0B14', padding: 10, borderRadius: 8, marginTop: 8 }}>
+                          <Text variant="bodySmall" style={{ color: '#00E5FF', fontWeight: 'bold' }}>
+                            💡 AI 가치관 조율 조언:
+                          </Text>
+                          <Text variant="bodySmall" style={{ color: '#E0E0E0', marginTop: 4, lineHeight: 15 }}>
+                            "거주지(일본 이주)에 대해 약간의 조율이 필요하나, 자녀 계획과 종교관이 극도로 일치합니다. 상대방에게 다정하게 대화를 열어보세요."
+                          </Text>
+                        </Surface>
+
+                        {/* 액션 버튼 */}
+                        <View style={styles.actionRow}>
+                          <Button 
+                            mode="outlined" 
+                            textColor="#FF8A80"
+                            onPress={() => Alert.alert('관심 보내기', `${peerId} 님에게 관심 핑(Contextual Ping)을 발송했습니다.`)}
+                            style={styles.actionButton}
+                          >
+                            관심 보내기
+                          </Button>
+                          <Button 
+                            mode="contained" 
+                            buttonColor="#FF8A80"
+                            textColor="#0D0B14"
+                            onPress={() => Alert.alert('소개 요청', '담당 커플 매니저에게 주선 인터뷰를 접수했습니다.')}
+                            style={[styles.actionButton, { marginLeft: 8 }]}
+                          >
+                            소개 요청하기
+                          </Button>
+                        </View>
+                      </Card.Content>
+                    </Card>
+                  )}
                 </Card.Content>
                 <Card.Actions style={{ marginTop: 8 }}>
                   {!inCall ? (
@@ -717,62 +904,336 @@ export default function App() {
             </View>
           )}
         </ScrollView>
-      </SafeAreaView>
+
+        {/* 1. 컨시어지 상담 채팅 모달 */}
+        <Modal
+          visible={isConciergeOpen}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setIsConciergeOpen(false)}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>🌸 1:1 컨시어지 매니저 상담</Text>
+                <IconButton
+                  icon="close"
+                  iconColor="#8A869F"
+                  size={20}
+                  onPress={() => setIsConciergeOpen(false)}
+                />
+              </View>
+              
+              <ScrollView style={styles.msgScroll} contentContainerStyle={{ paddingBottom: 10 }}>
+                {conciergeMessages.map((msg, index) => {
+                  let bubbleStyle: any = styles.conciergeMsgBubble;
+                  if (msg.sender === 'user') bubbleStyle = styles.userMsgBubble;
+                  if (msg.sender === 'system') bubbleStyle = styles.systemMsgBubble;
+
+                  return (
+                    <View key={index} style={[styles.msgBubble, bubbleStyle]}>
+                      {msg.sender !== 'user' && (
+                        <Text style={styles.msgSender}>
+                          {msg.sender === 'concierge' ? '💬 Match Manager' : '📢 System Notice'}
+                        </Text>
+                      )}
+                      <Text style={styles.msgText}>{msg.text}</Text>
+                    </View>
+                  );
+                })}
+              </ScrollView>
+
+              <View style={styles.inputRow}>
+                <TextInput
+                  value={newConciergeMsg}
+                  onChangeText={setNewConciergeMsg}
+                  placeholder="매니저에게 조언을 구해보세요 (예: 가치관 조정)"
+                  placeholderTextColor="#8A869F"
+                  mode="outlined"
+                  textColor="#FFF"
+                  activeOutlineColor={theme.colors.accent}
+                  outlineColor="#2D2B3B"
+                  theme={{ colors: { background: '#181524' } }}
+                  style={styles.conciergeInput}
+                />
+                <Button
+                  mode="contained"
+                  buttonColor={theme.colors.primary}
+                  textColor="#0D0B14"
+                  onPress={sendConciergeMessage}
+                  style={{ borderRadius: 8, height: 48, justifyContent: 'center' }}
+                >
+                  전송
+                </Button>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+        {/* 2. 상호주의 개인정보 공개 동의 요청 모달 */}
+        <Modal
+          visible={isRequestModalOpen}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setIsRequestModalOpen(false)}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.reqModalContent}>
+              <Text style={styles.reqTitle}>🔒 상호주의 배지 공개 요청</Text>
+              
+              <Text style={styles.reqDesc}>
+                상대방에게 배지 잠금 해제 동의 요청을 발송합니다.{"\n"}
+                "상호주의 원칙"에 따라 대표님께서도 해당 정보(인증 배지)가 활성화되어 있어야 상호 열람이 가능합니다.
+              </Text>
+
+              <Text style={{ color: '#8A869F', fontSize: 11, marginBottom: 8 }}>발송 언어 선택 (전송 문구 확인):</Text>
+              <View style={styles.langRow}>
+                <Button
+                  mode={requestLanguage === 'ko' ? 'contained' : 'outlined'}
+                  onPress={() => setRequestLanguage('ko')}
+                  style={styles.langButton}
+                  buttonColor={requestLanguage === 'ko' ? theme.colors.secondary : undefined}
+                >
+                  한국어 🇰🇷
+                </Button>
+                <Button
+                  mode={requestLanguage === 'ja' ? 'contained' : 'outlined'}
+                  onPress={() => setRequestLanguage('ja')}
+                  style={styles.langButton}
+                  buttonColor={requestLanguage === 'ja' ? theme.colors.secondary : undefined}
+                >
+                  일본어 🇯🇵
+                </Button>
+              </View>
+
+              <View style={styles.reqActions}>
+                <Button
+                  mode="outlined"
+                  onPress={() => setIsRequestModalOpen(false)}
+                  style={styles.reqBtn}
+                  textColor="#8A869F"
+                >
+                  취소
+                </Button>
+                <Button
+                  mode="contained"
+                  buttonColor={theme.colors.primary}
+                  textColor="#0D0B14"
+                  onPress={() => sendBadgePermissionRequest(requestTargetBadge, requestLanguage)}
+                  style={styles.reqBtn}
+                >
+                  요청 발송 🚀
+                </Button>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+        {/* 3. Deep Learning AI Match Breakdown 모달 */}
+        <Modal
+          visible={isBreakdownOpen}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setIsBreakdownOpen(false)}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>🧠 AI Match Breakdown</Text>
+                <IconButton
+                  icon="close"
+                  iconColor="#8A869F"
+                  size={20}
+                  onPress={() => setIsBreakdownOpen(false)}
+                />
+              </View>
+
+              <ScrollView style={styles.msgScroll} contentContainerStyle={{ paddingBottom: 20 }}>
+                {/* 1. 상단 원형 인디케이터 모사 */}
+                <View style={styles.breakdownHeader}>
+                  <View style={styles.circularProgressBorder}>
+                    <Text style={styles.circularProgressScore}>92%</Text>
+                    <Text style={styles.circularProgressLabel}>AI 매칭률</Text>
+                  </View>
+                  <Text style={styles.breakdownSubtitle}>
+                    한일 매칭 인공지능이 대표님과 상대방의 가치관 성향을 심층 분석했습니다.
+                  </Text>
+                </View>
+
+                {/* 2. Trend Alignment (듀얼 프로그레스 바 대조) */}
+                <View style={styles.breakdownSection}>
+                  <Text style={styles.breakdownSectionTitle}>📈 Trend Alignment (부부 성향 부합도)</Text>
+                  <Text style={styles.breakdownSectionDesc}>
+                    성공적인 한일 부부들의 맞벌이 및 커리어 지향 패턴과의 일치도 분석
+                  </Text>
+                  <View style={styles.trendRow}>
+                    <Text style={styles.trendLabel}>우리 부합도</Text>
+                    <View style={{ flex: 1, marginHorizontal: 8 }}>
+                      <ProgressBar progress={0.92} color="#FF8A80" style={{ height: 6, borderRadius: 3 }} />
+                    </View>
+                    <Text style={styles.trendValue}>92%</Text>
+                  </View>
+                  <View style={styles.trendRow}>
+                    <Text style={styles.trendLabel}>성공부부 평균</Text>
+                    <View style={{ flex: 1, marginHorizontal: 8 }}>
+                      <ProgressBar progress={0.85} color="#3F51B5" style={{ height: 6, borderRadius: 3 }} />
+                    </View>
+                    <Text style={styles.trendValue}>85%</Text>
+                  </View>
+                </View>
+
+                {/* 3. Deep Values (핵심 속성 비교) */}
+                <View style={styles.breakdownSection}>
+                  <Text style={styles.breakdownSectionTitle}>🔑 Deep Values (핵심 성향 호합)</Text>
+                  
+                  <View style={styles.deepValueBarRow}>
+                    <Text style={styles.deepValueLabel}>의사소통 성향</Text>
+                    <View style={{ flex: 1, marginHorizontal: 8 }}>
+                      <ProgressBar progress={0.95} color="#FF8A80" style={{ height: 4, borderRadius: 2 }} />
+                    </View>
+                    <Text style={styles.deepValuePercent}>95%</Text>
+                  </View>
+
+                  <View style={styles.deepValueBarRow}>
+                    <Text style={styles.deepValueLabel}>거주지 협의 유연성</Text>
+                    <View style={{ flex: 1, marginHorizontal: 8 }}>
+                      <ProgressBar progress={0.70} color="#FF8A80" style={{ height: 4, borderRadius: 2 }} />
+                    </View>
+                    <Text style={styles.deepValuePercent}>70%</Text>
+                  </View>
+
+                  <View style={styles.deepValueBarRow}>
+                    <Text style={styles.deepValueLabel}>종교적 상호 수용도</Text>
+                    <View style={{ flex: 1, marginHorizontal: 8 }}>
+                      <ProgressBar progress={0.90} color="#FF8A80" style={{ height: 4, borderRadius: 2 }} />
+                    </View>
+                    <Text style={styles.deepValuePercent}>90%</Text>
+                  </View>
+                </View>
+
+                {/* 4. Hidden Affinities (2열 취향 칩 그리드) */}
+                <View style={styles.breakdownSection}>
+                  <Text style={styles.breakdownSectionTitle}>✨ Hidden Affinities (숨겨진 취향 발견)</Text>
+                  <Text style={styles.breakdownSectionDesc}>AI가 두 분의 프로필 데이터 이면에서 매칭해 낸 숨은 호감 포인트</Text>
+                  
+                  <View style={styles.gridContainer}>
+                    <View style={styles.gridChip}>
+                      <Text style={styles.gridChipText}>☕ 조용한 weekend 카페</Text>
+                    </View>
+                    <View style={styles.gridChip}>
+                      <Text style={styles.gridChipText}>📺 J-Pop/K-Drama 공유</Text>
+                    </View>
+                    <View style={styles.gridChip}>
+                      <Text style={styles.gridChipText}>⛰️ 한적한 자연 산책 선호</Text>
+                    </View>
+                    <View style={styles.gridChip}>
+                      <Text style={styles.gridChipText}>🍳 홈쿠킹 & 일어/한글 교환</Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* AI 안심 보증 CTA 안내 및 닫기 버튼 */}
+                <Surface style={styles.aiGuaranteeBox} elevation={2}>
+                  <Text style={styles.aiGuaranteeText}>
+                    💡 AI has analyzed over 10,000 successful match patterns to recommend this partner.
+                  </Text>
+                  <Text style={styles.aiGuaranteeTextSub}>
+                    (AI가 10,000건 이상의 한일 매칭 성공 빅데이터 패턴을 비교 분석하여 최적의 동반자로 추천했습니다.)
+                  </Text>
+                </Surface>
+              </ScrollView>
+
+              <Button
+                mode="contained"
+                buttonColor="#FF8A80"
+                textColor="#0D0B14"
+                onPress={() => setIsBreakdownOpen(false)}
+                style={{ borderRadius: 8, height: 48, justifyContent: 'center' }}
+              >
+                Start Safe Chat (안전 대화 시작)
+              </Button>
+            </View>
+          </View>
+        </Modal>
+
+        </SafeAreaView>
+      </View>
     </PaperProvider>
   );
 }
 
 const styles = StyleSheet.create({
+  outerWrapper: {
+    flex: 1,
+    backgroundColor: '#050408', // 전체 웹 브라우저 배경을 더 깊은 다크 스페이스로 채움
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+  },
   container: {
     flex: 1,
-    backgroundColor: '#0F0E17',
+    backgroundColor: '#0D0B14',
+    width: '100%',
+    maxWidth: 480, // 모바일 폰 뷰포트 크기로 강제 가둠
+    alignSelf: 'center',
+    // 입체감 있는 섀도우 추가로 프리미엄 플로팅 폰 구현
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.5,
+    shadowRadius: 24,
+    elevation: 10,
   },
   header: {
-    padding: 24,
+    padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#252331',
-    backgroundColor: '#161420',
+    borderBottomColor: '#2D2B3B',
+    backgroundColor: '#181524',
   },
   titleText: {
-    color: '#FF2E93',
+    color: '#FF8A80',
     fontWeight: 'bold',
     letterSpacing: 0.5,
+    fontSize: 18,
   },
   subtitleText: {
     color: '#8A869F',
-    marginTop: 6,
+    marginTop: 4,
     fontWeight: '500',
+    fontSize: 11,
   },
   banner: {
-    backgroundColor: '#1F1E26',
+    backgroundColor: '#181524',
     borderBottomWidth: 1,
-    borderBottomColor: '#CF6679',
+    borderBottomColor: '#FF8A80',
   },
   bannerText: {
     color: '#FFF',
     fontWeight: 'bold',
   },
   scrollContent: {
-    padding: 20,
+    padding: 16,
   },
   card: {
-    backgroundColor: '#1F1E26',
-    marginBottom: 20,
-    borderRadius: 16,
+    backgroundColor: '#181524',
+    marginBottom: 16,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#2D2B3B',
+    overflow: 'hidden',
   },
   cardTitle: {
     color: '#FFF',
     fontWeight: 'bold',
-    fontSize: 20,
+    fontSize: 18,
   },
   cardSubtitle: {
     color: '#8A869F',
+    fontSize: 12,
   },
   input: {
     marginBottom: 16,
-    backgroundColor: '#2D2B3B',
+    backgroundColor: '#181524',
+    height: 48,
     borderRadius: 8,
   },
   label: {
@@ -787,7 +1248,7 @@ const styles = StyleSheet.create({
   },
   roleButton: {
     flex: 0.48,
-    borderColor: '#FF2E93',
+    borderColor: '#FF8A80',
     borderWidth: 1,
     borderRadius: 8,
   },
@@ -801,11 +1262,11 @@ const styles = StyleSheet.create({
   },
   statusBox: {
     padding: 20,
-    backgroundColor: '#161420',
+    backgroundColor: '#0D0B14',
     borderRadius: 12,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: '#252331',
+    borderColor: '#2D2B3B',
   },
   statusTitle: {
     color: '#8A869F',
@@ -813,7 +1274,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
   },
   statusValue: {
-    color: '#FF2E93',
+    color: '#FF8A80',
     marginTop: 6,
     fontWeight: 'bold',
   },
@@ -833,11 +1294,11 @@ const styles = StyleSheet.create({
   waveCircle: {
     borderRadius: 40,
     padding: 4,
-    backgroundColor: 'rgba(255, 46, 147, 0.15)',
+    backgroundColor: 'rgba(255, 138, 128, 0.15)',
   },
   callButton: {
     width: '100%',
-    borderRadius: 12,
+    borderRadius: 8,
     paddingVertical: 6,
   },
   sandboxContainer: {
@@ -848,7 +1309,7 @@ const styles = StyleSheet.create({
     height: 320,
   },
   sandboxTitle: {
-    color: '#00F0FF',
+    color: '#00E5FF',
     fontSize: 12,
     marginBottom: 10,
     fontWeight: 'bold',
@@ -856,7 +1317,7 @@ const styles = StyleSheet.create({
   },
   webview: {
     flex: 1,
-    backgroundColor: '#161420',
+    backgroundColor: '#0D0B14',
     borderRadius: 12,
     overflow: 'hidden',
   },
@@ -864,31 +1325,440 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginTop: 8,
     flexWrap: 'wrap',
+    gap: 6,
   },
   peerBadgeChip: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#2D2B3B',
-    borderRadius: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    marginRight: 6,
-    marginBottom: 4,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     borderWidth: 1,
     borderColor: '#3D3B4B',
   },
   peerBadgeIcon: {
     fontSize: 12,
-    marginRight: 3,
+    marginRight: 4,
   },
   peerBadgeText: {
     fontSize: 10,
-    color: '#BBB9C7',
+    color: '#E0E0E0',
     fontWeight: 'bold',
   },
   lockGuideText: {
     fontSize: 9,
     color: '#8A869F',
+    marginTop: 8,
+    lineHeight: 12,
+  },
+  heroImage: {
+    width: '100%',
+    height: 180,
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+  },
+  ownBadgeContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 8,
+  },
+  ownBadgeItem: {
+    alignItems: 'center',
+    backgroundColor: '#181524',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#2D2B3B',
+    padding: 8,
+    width: 70,
+  },
+  ownBadgeLabel: {
+    fontSize: 9,
+    color: '#8A869F',
+    marginTop: 4,
+    fontWeight: 'bold',
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '90%',
+    maxWidth: 440, // 웹 화면 찌그러짐 방지
+    height: '75%',
+    backgroundColor: '#181524',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#2D2B3B',
+    padding: 16,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#2D2B3B',
+    paddingBottom: 8,
+  },
+  modalTitle: {
+    color: '#FF8A80',
+    fontWeight: 'bold',
+    fontSize: 18,
+  },
+  msgScroll: {
+    flex: 1,
+    marginVertical: 12,
+  },
+  msgBubble: {
+    padding: 12,
+    borderRadius: 8,
+    marginVertical: 6,
+    maxWidth: '85%',
+  },
+  userMsgBubble: {
+    backgroundColor: '#3F51B5',
+    alignSelf: 'flex-end',
+  },
+  conciergeMsgBubble: {
+    backgroundColor: '#252331',
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: '#3F51B5',
+  },
+  systemMsgBubble: {
+    backgroundColor: '#181524',
+    alignSelf: 'center',
+    borderWidth: 1,
+    borderColor: '#FF8A80',
+    width: '95%',
+  },
+  msgText: {
+    color: '#FFF',
+    fontSize: 13,
+  },
+  translatedTextInline: {
+    color: '#8A869F',
+    fontSize: 11,
+    marginTop: 4,
+    borderTopWidth: 1,
+    borderTopColor: '#2D2B3B',
+    paddingTop: 4,
+    fontStyle: 'italic',
+  },
+  msgSender: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#00E5FF',
+    marginBottom: 4,
+  },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  conciergeInput: {
+    flex: 1,
+    backgroundColor: '#181524',
+    marginRight: 8,
+    height: 48,
+  },
+  reqModalContent: {
+    width: '85%',
+    maxWidth: 400, // 웹 화면 찌그러짐 방지
+    backgroundColor: '#181524',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#2D2B3B',
+    padding: 20,
+    alignItems: 'center',
+  },
+  reqTitle: {
+    color: '#00E5FF',
+    fontWeight: 'bold',
+    fontSize: 16,
+    marginBottom: 12,
+  },
+  reqDesc: {
+    color: '#E0E0E0',
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: 16,
+  },
+  langRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+    marginBottom: 20,
+  },
+  langButton: {
+    flex: 0.45,
+    borderRadius: 8,
+  },
+  reqActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  reqBtn: {
+    flex: 0.48,
+    borderRadius: 8,
+  },
+  discoveryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  profilePlaceholder: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: '#3F51B5',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  compatBadge: {
+    backgroundColor: '#FF8A80',
+    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  compatBadgeText: {
+    color: '#0D0B14',
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+  microBadgeChip: {
+    backgroundColor: '#2D2B3B',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: '#3D3B4B',
+  },
+  microBadgeText: {
+    fontSize: 9,
+    color: '#E0E0E0',
+    fontWeight: 'bold',
+  },
+  radarGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginVertical: 10,
+  },
+  radarItem: {
+    width: '48%',
+    backgroundColor: '#0D0B14',
+    padding: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#2D2B3B',
+    alignItems: 'center',
+  },
+  radarLabel: {
+    fontSize: 10,
+    color: '#8A869F',
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  radarStatus: {
+    fontSize: 9,
+    color: '#E0E0E0',
+    marginTop: 4,
+  },
+  valuesSummary: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginVertical: 10,
+  },
+  valueSummaryChip: {
+    backgroundColor: '#1C1929',
+    borderColor: '#3F51B5',
+    borderWidth: 1,
+    height: 28,
+    justifyContent: 'center',
+  },
+  valueSummaryChipText: {
+    color: '#E0E0E0',
+    fontSize: 10,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    marginTop: 14,
+    justifyContent: 'space-between',
+  },
+  actionButton: {
+    flex: 1,
+    borderRadius: 8,
+  },
+  videoMeetBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FF8A80',
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    marginVertical: 8,
+  },
+  videoMeetText: {
+    color: '#0D0B14',
+    fontWeight: 'bold',
+    fontSize: 11,
+    marginLeft: 6,
+  },
+  aiToolbarContainer: {
+    paddingVertical: 6,
+    borderTopWidth: 1,
+    borderTopColor: '#2D2B3B',
+    marginBottom: 6,
+  },
+  aiToolbarLabel: {
+    fontSize: 10,
+    color: '#00E5FF',
+    fontWeight: 'bold',
+    marginBottom: 6,
+  },
+  aiToolbarScroll: {
+    gap: 8,
+  },
+  aiToolbarChip: {
+    backgroundColor: '#1C1929',
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: '#00E5FF',
+  },
+  aiToolbarChipText: {
+    fontSize: 10,
+    color: '#E0E0E0',
+    fontWeight: '600',
+  },
+  breakdownHeader: {
+    alignItems: 'center',
+    marginVertical: 12,
+  },
+  circularProgressBorder: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 4,
+    borderColor: '#FF8A80',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  circularProgressScore: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#FF8A80',
+  },
+  circularProgressLabel: {
+    fontSize: 9,
+    color: '#8A869F',
+  },
+  breakdownSubtitle: {
+    fontSize: 11,
+    color: '#E0E0E0',
+    textAlign: 'center',
+    lineHeight: 15,
+    paddingHorizontal: 12,
+  },
+  breakdownSection: {
+    marginBottom: 18,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2D2B3B',
+    paddingBottom: 14,
+  },
+  breakdownSectionTitle: {
+    fontSize: 13,
+    color: '#00E5FF',
+    fontWeight: 'bold',
+    marginBottom: 6,
+  },
+  breakdownSectionDesc: {
+    fontSize: 10,
+    color: '#8A869F',
+    marginBottom: 10,
+  },
+  trendRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 4,
+  },
+  trendLabel: {
+    fontSize: 11,
+    color: '#E0E0E0',
+    width: 80,
+  },
+  trendValue: {
+    fontSize: 11,
+    color: '#00E5FF',
+    fontWeight: 'bold',
+    width: 30,
+    textAlign: 'right',
+  },
+  deepValueBarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 6,
+  },
+  deepValueLabel: {
+    fontSize: 11,
+    color: '#E0E0E0',
+    width: 110,
+  },
+  deepValuePercent: {
+    fontSize: 11,
+    color: '#FF8A80',
+    fontWeight: 'bold',
+    width: 30,
+    textAlign: 'right',
+  },
+  gridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  gridChip: {
+    width: '48%',
+    backgroundColor: '#1C1929',
+    borderColor: '#3F51B5',
+    borderWidth: 1,
+    padding: 8,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  gridChipText: {
+    fontSize: 10,
+    color: '#E0E0E0',
+  },
+  aiGuaranteeBox: {
+    backgroundColor: '#0D0B14',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#3F51B5',
+    marginBottom: 12,
+  },
+  aiGuaranteeText: {
+    fontSize: 11,
+    color: '#FF8A80',
+    fontWeight: '600',
+    textAlign: 'center',
+    lineHeight: 15,
+  },
+  aiGuaranteeTextSub: {
+    fontSize: 9,
+    color: '#8A869F',
+    textAlign: 'center',
+    lineHeight: 13,
     marginTop: 4,
   }
 });
