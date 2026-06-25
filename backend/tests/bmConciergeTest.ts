@@ -61,14 +61,16 @@ async function runTests() {
       residenceWill: 'FLEXIBLE',
       religion: 'NONE',
       dualIncome: 'YES',
-      marriageTiming: 'WITHIN_1_YEAR'
+      marriageTiming: 'WITHIN_1_YEAR',
+      languageSkill: 'FLUENT'
     });
     await MatchService.saveMarriageValues(partnerId, {
       childPlan: 'WANT_CHILDREN',
       residenceWill: 'FLEXIBLE',
       religion: 'NONE',
       dualIncome: 'YES',
-      marriageTiming: 'WITHIN_1_YEAR'
+      marriageTiming: 'WITHIN_1_YEAR',
+      languageSkill: 'BASIC'
     });
 
     const report = await ConciergeService.createAdvisoryReport(

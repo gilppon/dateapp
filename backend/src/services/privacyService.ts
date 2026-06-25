@@ -328,7 +328,8 @@ export const PrivacyService = {
           residenceMatch: false,
           childMatch: false,
           dualIncomeMatch: false,
-          religionMatch: false
+          religionMatch: false,
+          languageMatch: false
         },
         compatibility: undefined // 비공개
       };

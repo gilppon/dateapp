@@ -130,7 +130,7 @@ export const DbService = {
    * 사용자 상세 프로필을 유효성 검사 후 Firestore 또는 Mock DB에 저장합니다.
    */
   saveUserProfile: async (userId: string, profileData: any): Promise<UserProfile> => {
-    const { userName, userRole, religion, lifestyle, bloodType, hobbies } = profileData;
+    const { userName, userRole, religion, lifestyle, bloodType, hobbies, languageSkill } = profileData;
 
     if (!userName || !userRole || !religion || !lifestyle) {
       throw new Error('MISSING_REQUIRED_FIELDS');
@@ -176,6 +176,14 @@ export const DbService = {
       }
     }
 
+    // 상대방 언어 수준 체크 (선택 사항)
+    if (languageSkill) {
+      const validLangSkills = ['BASIC', 'INTERMEDIATE', 'FLUENT'];
+      if (!validLangSkills.includes(languageSkill)) {
+        throw new Error('INVALID_LANGUAGE_SKILL');
+      }
+    }
+
     const now = new Date();
     const updatedProfile: UserProfile = {
       userId,
@@ -185,6 +193,7 @@ export const DbService = {
       lifestyle,
       bloodType,
       hobbies,
+      languageSkill,
       updatedAt: now
     };
 

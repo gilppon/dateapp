@@ -20,7 +20,8 @@ async function runTests() {
       residenceWill: 'STAY_IN_KR',
       religion: 'CHRISTIAN',
       dualIncome: 'YES',
-      marriageTiming: 'WITHIN_1_YEAR'
+      marriageTiming: 'WITHIN_1_YEAR',
+      languageSkill: 'FLUENT'
     };
 
     const valuesB: MarriageValues = {
@@ -28,7 +29,8 @@ async function runTests() {
       residenceWill: 'FLEXIBLE',
       religion: 'NONE',
       dualIncome: 'YES',
-      marriageTiming: 'WITHIN_2_YEARS'
+      marriageTiming: 'WITHIN_2_YEARS',
+      languageSkill: 'BASIC'
     };
 
     const valuesC: MarriageValues = {
@@ -36,7 +38,8 @@ async function runTests() {
       residenceWill: 'STAY_IN_JP',
       religion: 'BUDDHIST',
       dualIncome: 'NO',
-      marriageTiming: 'DEPENDS'
+      marriageTiming: 'DEPENDS',
+      languageSkill: 'BASIC'
     };
 
     await MatchService.saveMarriageValues(userA, valuesA);
@@ -51,7 +54,7 @@ async function runTests() {
 
     const scoreAC = await MatchService.calculateMatchScore(valuesA, valuesC);
     console.log(`   - A & C 점수: ${scoreAC.score}점 (BestMatch: ${scoreAC.isBestMatch})`);
-    if (scoreAC.score !== 10) throw new Error(`A & C 점수(기대값: 10점) 정합성 에러: 실제값 ${scoreAC.score}점`);
+    if (scoreAC.score !== 35) throw new Error(`A & C 점수(기대값: 35점) 정합성 에러: 실제값 ${scoreAC.score}점`);
 
     // 3. 미팅 캘린더 조율 (useAiTranslation 활성화)
     console.log('\n[TEST 2] AI 실시간 통역 옵션 활성화 화상 미팅 조율 검사');

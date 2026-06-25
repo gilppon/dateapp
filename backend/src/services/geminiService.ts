@@ -263,10 +263,11 @@ export async function generateMatchAdvice(
     - 맞벌이 여부: ${getIncomeText(u2.dualIncome)}
 
     [가치관 점수 세부 분석 (최대 만점)]:
-    - 자녀 계획: ${details.childPlanScore} / 30점
-    - 거주지 의사: ${details.residenceScore} / 30점
-    - 종교 일치도: ${details.religionScore} / 20점
-    - 맞벌이/경제관: ${details.economicScore} / 20점
+    - 거주지 의사: ${details.residenceScore} / 25점
+    - 언어소통 능력: ${details.languageScore} / 25점
+    - 자녀 계획: ${details.childPlanScore} / 20점
+    - 종교 일치도: ${details.religionScore} / 15점
+    - 맞벌이/경제관: ${details.economicScore} / 15점
 
     [지침]:
     1. 두 유저의 조건에서 서로 '다른 부분'을 명확히 짚어주되, 서로의 생각을 비난하지 않고 정중한 조언으로 승화시키십시오.

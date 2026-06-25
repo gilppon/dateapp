@@ -32,14 +32,15 @@ async function runTests() {
     // 거주지: 0점 (STAY_IN_KR vs STAY_IN_JP)
     // 종교: 5점 (CHRISTIAN vs BUDDHIST)
     // 맞벌이: 5점 (YES vs NO)
-    // 합계: 10점
+    // 언어: 5점 (기본값 BASIC vs BASIC)
+    // 합계: 15점
     console.log(`   - 계산된 매칭 점수: ${result.score}점 (BestMatch: ${result.isBestMatch})`);
-    if (result.score !== 10) {
-      throw new Error(`매칭 가중치 합산 오류: 기대값 10점, 실제값 ${result.score}점`);
+    if (result.score !== 15) {
+      throw new Error(`매칭 가중치 합산 오류: 기대값 15점, 실제값 ${result.score}점`);
     }
 
     if (result.isBestMatch === true) {
-      throw new Error('10점 매칭 결과인데 BestMatch로 인정되었습니다.');
+      throw new Error('15점 매칭 결과인데 BestMatch로 인정되었습니다.');
     }
 
     // 2. Gemini AI 조언 생성 여부 검사 (80점 미만이므로 aiAdvice가 채워져 있어야 함)
@@ -49,10 +50,11 @@ async function runTests() {
       throw new Error('compatibility 상세 결과 데이터가 누락되었습니다.');
     }
 
-    console.log(`   - 자녀계획 점수: ${comp.childPlanScore} / 30`);
-    console.log(`   - 거주지 점수: ${comp.residenceScore} / 30`);
-    console.log(`   - 종교관 점수: ${comp.religionScore} / 20`);
-    console.log(`   - 경제관 점수: ${comp.economicScore} / 20`);
+    console.log(`   - 자녀계획 점수: ${comp.childPlanScore} / 20`);
+    console.log(`   - 거주지 점수: ${comp.residenceScore} / 25`);
+    console.log(`   - 언어능력 점수: ${comp.languageScore} / 25`);
+    console.log(`   - 종교관 점수: ${comp.religionScore} / 15`);
+    console.log(`   - 경제관 점수: ${comp.economicScore} / 15`);
 
     if (!comp.aiAdvice) {
       throw new Error('80점 미만 저점 매칭임에도 AI 조언(aiAdvice)이 생성되지 않았습니다.');

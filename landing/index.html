@@ -58,7 +58,150 @@
     </a>
   </section>
 
+  <!-- 이용약관 및 상거래법 푸터 신설 -->
+  <footer class="site-footer">
+    <div class="footer-links">
+      <a onclick="openLegalModal('tos')">이용약관</a>
+      <span class="divider">|</span>
+      <a onclick="openLegalModal('privacy')">개인정보처리방침</a>
+      <span class="divider">|</span>
+      <a onclick="openLegalModal('refund')">환불정책</a>
+      <span class="divider">|</span>
+      <a onclick="openLegalModal('tokushoho')">특정상거래법 표시</a>
+    </div>
+    <p class="copyright">&copy; 2026 Next Haru. All rights reserved.</p>
+  </footer>
+
+  <!-- Slide-over Modal Layout -->
+  <div id="legalModal" class="legal-modal">
+    <div class="modal-overlay" onclick="closeLegalModal()"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title-area">
+          <h2 id="modalTitle">이용약관</h2>
+          <span id="modalSubTitle">Terms of Service</span>
+        </div>
+        <button class="close-btn" onclick="closeLegalModal()">&times;</button>
+      </div>
+      
+      <!-- KO / JA / EN 언어 선택 탭 -->
+      <div class="modal-tabs">
+        <button id="tab-ko" class="tab-btn active" onclick="switchLegalLanguage('ko')">KO</button>
+        <button id="tab-ja" class="tab-btn" onclick="switchLegalLanguage('ja')">JA</button>
+        <button id="tab-en" class="tab-btn" onclick="switchLegalLanguage('en')">EN</button>
+      </div>
+      
+      <!-- 본문 내용 컨테이너 -->
+      <div class="modal-body" id="modalBody">
+        <!-- JS로 동적 할당 -->
+      </div>
+    </div>
+  </div>
+
   <script>
+    // 3개국어 약관 데이터 정의
+    const LEGAL_DATA = {
+      tos: {
+        title: { ko: "서비스 이용약관", ja: "サービス利用規約", en: "Terms of Service" },
+        content: {
+          ko: `<h3>제1조 (목적)</h3><p>본 약관은 Next Haru(이하 "회사")가 제공하는 한일 가치관 매칭 서비스 'korea aimasu'(이하 "서비스")를 이용함에 있어 회사와 회원의 권리, 의무 및 책임사항을 규정함을 목적으로 합니다.</p><h3>제2조 (회원 가입 조건)</h3><p>본 서비스는 만 19세 미만(한국 기준) 및 만 18세 미만(일본 기준)의 미성년자는 이용할 수 없습니다. 회원은 가입 시 본인 인증 서류(eKYC)를 성실히 제출해야 합니다.</p><h3>제3조 (서비스 이용 및 결제)</h3><p>회사는 일부 서비스를 유료(하트 충전 및 멤버십)로 제공합니다. 요금 및 결제 조건은 앱 내 구매 페이지에 표시된 바에 따릅니다.</p><h3>제4조 (준거법 및 재판관할)</h3><p>본 약관은 일본 법률을 준거법으로 하며, 서비스 이용과 관련하여 분쟁이 발생할 경우 회사의 본사 소재지 관할 법원을 합의 관할 법원으로 합니다.</p>`,
+          ja: `<h3>第1条 (目的)</h3><p>本規約は、Next Haru（以下「当社」）が提供する日韓価値観マッチングサービス「korea aimasu」（以下「サービス」）の利用条件を定めるものです。</p><h3>第2条 (会員登録要件)</h3><p>本サービスは、満19歳未満（韓国）および満18歳未満（日本）の未成年者はご利用いただけません。登録時には本人確認書類（eKYC）の提出が必要です。</p><h3>第3条 (お支払い)</h3><p>一部サービスは有料（ハート充電・メンバーシップ）で提供されます。価格はアプリ内の各購入ページに準じます。</p><h3>第4条 (準拠法・裁判管轄)</h3><p>本規約の準拠法は日本法とし、本サービスに関する紛争については、当社の所在地を管轄する裁判所を第一審の合意管轄裁判所とします。</p>`,
+          en: `<h3>Section 1 (Purpose)</h3><p>These Terms of Service govern the relationship between Next Haru ("Company") and users of the Korea-Japan matching service 'korea aimasu' ("Service").</p><h3>Section 2 (Eligibility)</h3><p>Users under the age of 19 (for Korea) and 18 (for Japan) are strictly prohibited from using this Service. ID verification (eKYC) is required upon registration.</p><h3>Section 3 (Payments)</h3><p>Paid services (Hearts and Premium Membership) are subject to billing terms displayed within the App store and purchase screens.</p><h3>Section 4 (Governing Law)</h3><p>These terms shall be governed by the laws of Japan. Any disputes shall be settled in the court of jurisdiction of the Company's headquarters.</p>`
+        }
+      },
+      privacy: {
+        title: { ko: "개인정보 처리방침", ja: "個人情報保護方針", en: "Privacy Policy" },
+        content: {
+          ko: `<h3>1. 수집하는 개인정보</h3><p>회사는 회원가입, 매칭 및 고객상담을 위해 이메일, 닉네임, 생년월일, 성별, 거주지 가치관 정보 및 eKYC 본인인증 사진 데이터를 수집합니다.</p><h3>2. 개인정보의 이용 목적</h3><p>수집된 개인정보는 회원 관리, 매칭 점수 산정 및 실시간 AI 번역/세이프 가드 필터링 서비스 제공 목적으로만 이용됩니다.</p><h3>3. 개인정보의 제3자 제공</h3><p>회사는 법령에 특별한 규정이 있는 경우를 제외하고는 회원의 동의 없이 개인정보를 제3자에게 제공하지 않습니다.</p>`,
+          ja: `<h3>1. 収集する個人情報</h3><p>当社は、会員登録、マッチング、カスタマーサポートのために、メールアドレス、ニックネーム、生年月日、性別、価値観情報、eKYC本人確認用データを収集します。</p><h3>2. 利用目的</h3><p>収集した情報は、会員管理、マッチング適合度の計算、およびAI安全対策ガード機能の提供にのみ使用します。</p><h3>3. 第三者提供</h3><p>法令に基づく場合を除き、利用者の同意なく個人情報を第三者に提供することはありません。</p>`,
+          en: `<h3>1. Information Collected</h3><p>We collect email, nickname, birthdate, gender, lifestyle values, and photo IDs for identity verification (eKYC) purposes.</p><h3>2. Use of Information</h3><p>Your information is processed to run compatibility matching, verify account authenticity, and protect users via AI safety guards.</p><h3>3. Third-party Sharing</h3><p>We do not share or sell your private information to third parties, except as required by law.</p>`
+        }
+      },
+      refund: {
+        title: { ko: "환불정책", ja: "返金ポリシー", en: "Refund Policy" },
+        content: {
+          ko: `<h3>1. 디지털 콘텐츠의 환불 제한</h3><p>본 서비스에서 판매되는 하트(Hearts) 등 가상 상품은 디지털 재화의 특성상 구매 완료 후 즉시 지급되어 원칙적으로 청약철회 및 환불이 불가능합니다.</p><h3>2. 예외적 환불 사유</h3><p>시스템 오류로 인한 중복 결제, 결제 완료 후 7일 이내 상품이 지급되지 않은 기술적 오류 등에 한하여 미사용 재화에 대한 환불이 가능합니다. support@next-haru.com 으로 영수증 사본을 첨부하여 요청해주시기 바랍니다.</p>`,
+          ja: `<h3>1. デジタル商品の返金制限</h3><p>サービス内で販売されるハートなどの仮想商品は、デジタルコンテンツの性質上、購入完了後の返品・返金は原則としてお受けできません。</p><h3>2. 例外的な返金条件</h3><p>重複決済やシステム障害による不具合など、当社の責に帰すべき場合に限り、未使用コンテンツについて購入後7日以内の申請をもって返金を行います。support@next-haru.com までご連絡ください。</p>`,
+          en: `<h3>1. Digital Goods Non-Refundability</h3><p>All in-app purchases (Hearts) are digital goods and are non-refundable once successfully delivered to your account.</p><h3>2. Exception Rules</h3><p>Refunds may be processed in cases of double billing or major technical delivery failures. Contact support@next-haru.com with transaction receipts within 7 days of purchase.</p>`
+        }
+      },
+      tokushoho: {
+        title: { ko: "특정상거래법 표시", ja: "特定商取引法に基づく表記", en: "Specified Commercial Transactions" },
+        content: {
+          ko: `
+            <div class="tokushoho-row"><div class="tokushoho-label">사업자 명칭</div><div class="tokushoho-value">Next Haru</div></div>
+            <div class="tokushoho-row"><div class="tokushoho-label">운영책임자</div><div class="tokushoho-value">GILHO SHIN</div></div>
+            <div class="tokushoho-row"><div class="tokushoho-label">소재지</div><div class="tokushoho-value">1-7 Daishincho, Hadano-shi, Kanagawa 257-0034, Japan<br>(〒257-0034 神奈川県秦野市大秦町1-7)</div></div>
+            <div class="tokushoho-row"><div class="tokushoho-label">문의 이메일</div><div class="tokushoho-value"><a href="mailto:support@next-haru.com">support@next-haru.com</a></div></div>
+            <div class="tokushoho-row"><div class="tokushoho-label">연락처 전화번호</div><div class="tokushoho-value">+81 80-8879-0002</div></div>
+            <div class="tokushoho-row"><div class="tokushoho-label">판매 가격</div><div class="tokushoho-value">앱 내 상품 구매 페이지에 표시된 가격</div></div>
+            <div class="tokushoho-row"><div class="tokushoho-label">대금 지불 시기 및 방법</div><div class="tokushoho-value">결제 시 즉시 과금 (신용카드 등 Stripe PG 연동)</div></div>
+            <div class="tokushoho-row"><div class="tokushoho-label">상품 인도 시기</div><div class="tokushoho-value">결제 즉시 계정에 반영되어 사용 가능</div></div>
+            <div class="tokushoho-row"><div class="tokushoho-label">반품 및 취소</div><div class="tokushoho-value">디지털 상품 특성상 결제 후 반품/취소 불가 (환불 정책 참조)</div></div>
+          `,
+          ja: `
+            <div class="tokushoho-row"><div class="tokushoho-label">事業者名称</div><div class="tokushoho-value">Next Haru</div></div>
+            <div class="tokushoho-row"><div class="tokushoho-label">運営統括責任者</div><div class="tokushoho-value">GILHO SHIN</div></div>
+            <div class="tokushoho-row"><div class="tokushoho-label">所在地</div><div class="tokushoho-value">1-7 Daishincho, Hadano-shi, Kanagawa 257-0034, Japan<br>(〒257-0034 神奈川県秦野市大秦町1-7)</div></div>
+            <div class="tokushoho-row"><div class="tokushoho-label">連絡先メールアドレス</div><div class="tokushoho-value"><a href="mailto:support@next-haru.com">support@next-haru.com</a></div></div>
+            <div class="tokushoho-row"><div class="tokushoho-label">電話番号</div><div class="tokushoho-value">+81 80-8879-0002</div></div>
+            <div class="tokushoho-row"><div class="tokushoho-label">販売価格</div><div class="tokushoho-value">アプリ内購入画面に記載</div></div>
+            <div class="tokushoho-row"><div class="tokushoho-label">代金の支払時期と方法</div><div class="tokushoho-value">ご購入時に即時決済されます（クレジットカード/Stripe経由）</div></div>
+            <div class="tokushoho-row"><div class="tokushoho-label">商品の引渡時期</div><div class="tokushoho-value">決済完了後、直ちにご利用いただけます。</div></div>
+            <div class="tokushoho-row"><div class="tokushoho-label">返品・キャンセル</div><div class="tokushoho-value">デジタルコンテンツの性質上、購入後のキャンセルはお受けできません。</div></div>
+          `,
+          en: `
+            <div class="tokushoho-row"><div class="tokushoho-label">Company Name</div><div class="tokushoho-value">Next Haru</div></div>
+            <div class="tokushoho-row"><div class="tokushoho-label">Representative</div><div class="tokushoho-value">GILHO SHIN</div></div>
+            <div class="tokushoho-row"><div class="tokushoho-label">Address</div><div class="tokushoho-value">1-7 Daishincho, Hadano-shi, Kanagawa 257-0034, Japan</div></div>
+            <div class="tokushoho-row"><div class="tokushoho-label">Contact Email</div><div class="tokushoho-value"><a href="mailto:support@next-haru.com">support@next-haru.com</a></div></div>
+            <div class="tokushoho-row"><div class="tokushoho-label">Phone Number</div><div class="tokushoho-value">+81 80-8879-0002</div></div>
+            <div class="tokushoho-row"><div class="tokushoho-label">Pricing</div><div class="tokushoho-value">As displayed on each purchase page.</div></div>
+            <div class="tokushoho-row"><div class="tokushoho-label">Payment Methods & Timing</div><div class="tokushoho-value">Charged immediately via Credit Card (Stripe PG).</div></div>
+            <div class="tokushoho-row"><div class="tokushoho-label">Delivery Time</div><div class="tokushoho-value">Available instantly after purchase.</div></div>
+            <div class="tokushoho-row"><div class="tokushoho-label">Returns & Cancellations</div><div class="tokushoho-value">All sales are final due to digital product characteristics.</div></div>
+          `
+        }
+      }
+    };
+
+    let currentActiveType = 'tos';
+    let currentActiveLang = 'ko';
+
+    function openLegalModal(type) {
+      currentActiveType = type;
+      const modal = document.getElementById('legalModal');
+      modal.classList.add('active');
+      renderLegalContent();
+    }
+
+    function closeLegalModal() {
+      const modal = document.getElementById('legalModal');
+      modal.classList.remove('active');
+    }
+
+    function switchLegalLanguage(lang) {
+      currentActiveLang = lang;
+      // 탭 스타일 활성화 처리
+      ['ko', 'ja', 'en'].forEach(l => {
+        const btn = document.getElementById(`tab-${l}`);
+        if (l === lang) btn.classList.add('active');
+        else btn.classList.remove('active');
+      });
+      renderLegalContent();
+    }
+
+    function renderLegalContent() {
+      const doc = LEGAL_DATA[currentActiveType];
+      const title = doc.title[currentActiveLang];
+      const subTitle = doc.title[currentActiveLang === 'ko' ? 'en' : 'ko']; // 보조 타이틀 매치
+      const bodyHTML = doc.content[currentActiveLang];
+
+      document.getElementById('modalTitle').innerText = title;
+      document.getElementById('modalSubTitle').innerText = subTitle;
+      document.getElementById('modalBody').innerHTML = bodyHTML;
+    }
+
     // Matter.js 모듈 별칭 정의
     const { Engine, Render, Runner, Bodies, Composite, Mouse, MouseConstraint, Events, Body } = Matter;
 

@@ -270,3 +270,191 @@ header {
     font-size: 28px;
   }
 }
+
+/* 푸터 스타일 */
+.site-footer {
+  padding: 40px 8%;
+  background-color: #0D0B14;
+  border-top: 1px solid #252331;
+  text-align: center;
+  color: #8A869F;
+  font-size: 14px;
+}
+.footer-links {
+  margin-bottom: 16px;
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.footer-links a {
+  color: #8A869F;
+  text-decoration: none;
+  transition: color 0.3s ease;
+  font-weight: 600;
+  cursor: pointer;
+}
+.footer-links a:hover {
+  color: #FF8A80;
+}
+.footer-links .divider {
+  color: #2D2B3B;
+}
+.copyright {
+  font-size: 12px;
+  color: #5A5868;
+}
+
+/* 슬라이드오버 모달 스타일 */
+.legal-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1000;
+  display: none;
+  justify-content: flex-end;
+}
+.legal-modal.active {
+  display: flex;
+}
+.modal-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+.legal-modal.active .modal-overlay {
+  opacity: 1;
+}
+.modal-content {
+  position: relative;
+  width: 100%;
+  max-width: 500px;
+  height: 100%;
+  background-color: #181524;
+  border-left: 1px solid #2D2B3B;
+  box-shadow: -10px 0 40px rgba(0,0,0,0.5);
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.legal-modal.active .modal-content {
+  transform: translateX(0);
+}
+.modal-header {
+  padding: 24px;
+  border-bottom: 1px solid #2D2B3B;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.modal-title-area h2 {
+  color: #FFF;
+  font-size: 20px;
+  font-weight: 800;
+  margin: 0;
+}
+.modal-title-area span {
+  color: #8A869F;
+  font-size: 12px;
+  display: block;
+  margin-top: 4px;
+}
+.close-btn {
+  background: none;
+  border: none;
+  color: #8A869F;
+  font-size: 32px;
+  cursor: pointer;
+  transition: color 0.3s ease;
+  padding: 0;
+  line-height: 1;
+}
+.close-btn:hover {
+  color: #FF8A80;
+}
+.modal-tabs {
+  padding: 12px 24px;
+  border-bottom: 1px solid #2D2B3B;
+  display: flex;
+  gap: 8px;
+  background-color: #12101B;
+}
+.tab-btn {
+  background: none;
+  border: 1px solid #2D2B3B;
+  color: #8A869F;
+  padding: 6px 16px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+.tab-btn.active {
+  background-color: #FF8A80;
+  border-color: #FF8A80;
+  color: #0D0B14;
+}
+.modal-body {
+  flex: 1;
+  padding: 24px;
+  overflow-y: auto;
+  color: #E2DFE9;
+  font-size: 14px;
+  line-height: 1.7;
+}
+.modal-body h3 {
+  color: #00E5FF;
+  font-size: 16px;
+  font-weight: 700;
+  margin-top: 24px;
+  margin-bottom: 8px;
+}
+.modal-body h3:first-of-type {
+  margin-top: 0;
+}
+.modal-body p, .modal-body li {
+  margin-bottom: 12px;
+  color: #B4B0C4;
+}
+.modal-body ul {
+  padding-left: 20px;
+  margin-bottom: 12px;
+}
+.modal-body a {
+  color: #00E5FF;
+  text-decoration: none;
+}
+.modal-body a:hover {
+  text-decoration: underline;
+}
+
+/* 특정상거래법용 테이블형 레이아웃 */
+.tokushoho-row {
+  border-bottom: 1px solid #2D2B3B;
+  padding: 14px 0;
+}
+.tokushoho-row:last-child {
+  border-bottom: none;
+}
+.tokushoho-label {
+  color: #8A869F;
+  font-size: 12px;
+  font-weight: bold;
+  margin-bottom: 6px;
+}
+.tokushoho-value {
+  color: #FFF;
+  font-size: 14px;
+  line-height: 1.5;
+}
+

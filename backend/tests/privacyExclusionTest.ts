@@ -98,13 +98,15 @@ async function runTests() {
         residenceMatch: true,
         childMatch: true,
         dualIncomeMatch: true,
-        religionMatch: true
+        religionMatch: true,
+        languageMatch: true
       },
       compatibility: {
-        childPlanScore: 30,
-        residenceScore: 30,
-        religionScore: 20,
-        economicScore: 20,
+        childPlanScore: 20,
+        residenceScore: 25,
+        religionScore: 15,
+        economicScore: 15,
+        languageScore: 15,
         aiAdvice: '훌륭한 매칭입니다.'
       }
     };
